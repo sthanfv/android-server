@@ -1,0 +1,33 @@
+{
+  "serverName": "Mini Servidor Android",
+  "thermal": {
+    "enabled": true,
+    "maxTemperatureC": 41,
+    "cooldownTemperatureC": 36
+  },
+  "telegram": {
+    "enabled": false,
+    "botToken": "",
+    "chatId": "",
+    "events": {
+      "serverBoot": true,
+      "lowBattery": true,
+      "networkRestored": true,
+      "thermalAlert": true
+    }
+  },
+  "discord": {
+    "enabled": false,
+    "webhookUrl": "",
+    "events": {
+      "serverBoot": true,
+      "lowBattery": true,
+      "networkRestored": true,
+      "thermalAlert": true
+    }
+  },
+  "auth": {
+    "username": "admin",
+    "password": "securepassword123"
+  }
+}

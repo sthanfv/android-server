@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Android Mini Server Dashboard</title>
+
+    <!-- Tipografías de Alta Fidelidad -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- FontAwesome Íconos -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <!-- Chart.js para telemetría visual -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Estilos Custom Glassmorphism -->
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <!-- ENCABEZADO PRINCIPAL -->
+      <header class="main-header">
+        <div class="header-title">
+          <div
+            class="server-status-dot pulse"
+            id="serverStatusIndicator"
+            title="Servidor Activo"
+          ></div>
+          <div>
+            <h1 id="serverName">Mini Servidor Android</h1>
+            <p class="subtitle" id="deviceSubtitle">
+              Cortex-A53 8-Core | Android 10
+            </p>
+          </div>
+        </div>
+
+        <div class="header-badges">
+          <button
+            class="btn-theme-toggle"
+            id="btnToggleTheme"
+            title="Cambiar tema visual"
+          >
+            <i class="fa-solid fa-palette"></i>
+            <span id="themeNameText">Tema: Cyberpunk</span>
+          </button>
+          <div class="header-stat">
+            <span class="label">TIEMPO ACTIVO (UPTIME)</span>
+            <span id="uptimeText" class="value mono">--:--:--</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- NAVEGACIÓN POR PESTAÑAS (TABS) -->
+      <nav class="nav-tabs">
+        <button class="tab-btn active" data-tab="tab-telemetry">
+          <i class="fa-solid fa-chart-pie"></i> Telemetría
+        </button>
+        <button class="tab-btn" data-tab="tab-apphub">
+          <i class="fa-solid fa-store"></i> App Hub (1-Clic)
+        </button>
+        <button class="tab-btn" data-tab="tab-deployer">
+          <i class="fa-solid fa-rocket"></i> Desplegador Web
+        </button>
+        <button class="tab-btn" data-tab="tab-settings">
+          <i class="fa-solid fa-bell"></i> Alertas & Ajustes
+        </button>
+      </nav>
+
+      <!-- ========================================== -->
+      <!-- PESTAÑA 1: TELEMETRÍA Y SUPERVISOR        -->
+      <!-- ========================================== -->
+      <main class="tab-content active" id="tab-telemetry">
+        <div class="metrics-grid">
+          <!-- Tarjeta 1: CPU & Gobernador Térmico -->
+          <div class="card metric-card">
+            <div class="card-header">
+              <div class="card-title">
+                <i class="fa-solid fa-microchip icon-cyan"></i>
+                <span>Carga de Procesador</span>
+              </div>
+              <span class="badge badge-temp" id="cpuTempBadge">--.- °C</span>
+            </div>
+            <div class="card-body">
+              <div class="metric-main">
+                <span class="metric-value mono" id="cpuUsageText">0.0%</span>
+                <span class="metric-sub" id="cpuCoresText">8 Núcleos</span>
+              </div>
+              <div class="progress-bar-container">
+                <div
+                  class="progress-bar-fill progress-cyan"
+                  id="cpuProgressBar"
+                  style="width: 0%"
+                ></div>
+              </div>
+              <div class="card-footer-info">
+                <span id="cpuModelText">Exynos 7870</span>
+                <span class="badge badge-success" id="thermalStatusBadge"
+                  >Normal</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Tarjeta 2: RAM & ZRAM -->
+          <div class="card metric-card">
+            <div class="card-header">
+              <div class="card-title">
+                <i class="fa-solid fa-memory icon-purple"></i>
+                <span>Memoria RAM</span>
+              </div>
+              <span class="badge badge-info" id="ramPercentBadge">0%</span>
+            </div>
+            <div class="card-body">
+              <div class="metric-main">
+                <span class="metric-value mono" id="ramUsedText">0 MB</span>
+                <span class="metric-sub" id="ramTotalText">de 0 MB</span>
+              </div>
+              <div class="progress-bar-container">
+                <div
+                  class="progress-bar-fill progress-purple"
+                  id="ramProgressBar"
+                  style="width: 0%"
+                ></div>
+              </div>
+              <div class="card-footer-info">
+                <span id="zramText"
+                  ><i class="fa-solid fa-compress"></i> ZRAM: 0 MB</span
+                >
+                <span class="text-emerald" id="ramFreeText">Libre: 0 MB</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tarjeta 3: Almacenamiento Flash eMMC -->
+          <div class="card metric-card">
+            <div class="card-header">
+              <div class="card-title">
+                <i class="fa-solid fa-hard-drive icon-orange"></i>
+                <span>Almacenamiento (/data)</span>
+              </div>
+              <span class="badge badge-warning" id="storagePercentBadge"
+                >0%</span
+              >
+            </div>
+            <div class="card-body">
+              <div class="metric-main">
+                <span class="metric-value mono" id="storageUsedText">0 GB</span>
+                <span class="metric-sub" id="storageTotalText">de 0 GB</span>
+              </div>
+              <div class="progress-bar-container">
+                <div
+                  class="progress-bar-fill progress-orange"
+                  id="storageProgressBar"
+                  style="width: 0%"
+                ></div>
+              </div>
+              <div class="card-footer-info">
+                <span
+                  ><i class="fa-solid fa-database"></i> Flash eMMC
+                  (noatime)</span
+                >
+                <span class="text-emerald" id="storageFreeText"
+                  >Libre: 0 GB</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Tarjeta 4: Batería y Energía 24/7 -->
+          <div class="card metric-card">
+            <div class="card-header">
+              <div class="card-title">
+                <i class="fa-solid fa-bolt icon-emerald"></i>
+                <span>Batería y Energía</span>
+              </div>
+              <span class="badge badge-success" id="batteryStatusBadge"
+                >CARGANDO</span
+              >
+            </div>
+            <div class="card-body">
+              <div class="metric-main">
+                <span class="metric-value mono" id="batteryLevelText"
+                  >100%</span
+                >
+                <span class="metric-sub" id="batteryVoltageText">4.2 V</span>
+              </div>
+              <div class="progress-bar-container">
+                <div
+                  class="progress-bar-fill progress-emerald"
+                  id="batteryProgressBar"
+                  style="width: 100%"
+                ></div>
+              </div>
+              <div class="card-footer-info">
+                <span id="batteryTempText"
+                  ><i class="fa-solid fa-temperature-half"></i> 0.0 °C</span
+                >
+                <span class="text-emerald"
+                  ><i class="fa-solid fa-shield"></i> SAI Natural</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GRÁFICO HISTÓRICO DE RENDIMIENTO -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <div class="card-title">
+              <i class="fa-solid fa-chart-line icon-cyan"></i>
+              <span>Telemetría en Tiempo Real (Histórico 60 Segundos)</span>
+            </div>
+            <div class="chart-legend">
+              <span class="legend-item"
+                ><span class="legend-color color-cyan"></span> CPU</span
+              >
+              <span class="legend-item"
+                ><span class="legend-color color-purple"></span> RAM</span
+              >
+            </div>
+          </div>
+          <div class="card-body chart-body">
+            <canvas id="performanceChart"></canvas>
+          </div>
+        </div>
+
+        <!-- REDES Y CONEXIONES -->
+        <div class="card network-card">
+          <div class="card-header">
+            <div class="card-title">
+              <i class="fa-solid fa-network-wired icon-cyan"></i>
+              <span>Redes y Conectividad</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <ul class="info-list" id="networksList">
+              <li class="info-item">
+                <div class="info-icon">
+                  <i class="fa-solid fa-globe icon-cyan"></i>
+                </div>
+                <div class="info-details">
+                  <span class="info-title">Estado de Internet & Heartbeat</span>
+                  <span class="info-value mono" id="internetStatusText"
+                    ><i class="fa-solid fa-circle text-emerald"></i> En Línea
+                    (Monitor Activo)</span
+                  >
+                </div>
+                <span class="badge badge-success" id="internetStatusBadge"
+                  >Conectado</span
+                >
+              </li>
+              <li class="info-item">
+                <div class="info-icon"><i class="fa-solid fa-wifi"></i></div>
+                <div class="info-details">
+                  <span class="info-title">Wi-Fi Local (wlan0)</span>
+                  <span class="info-value mono" id="wifiIpText"
+                    >192.168.1.33</span
+                  >
+                </div>
+                <span class="badge badge-info">LAN</span>
+              </li>
+              <li class="info-item">
+                <div class="info-icon">
+                  <i class="fa-solid fa-shield-halved icon-emerald"></i>
+                </div>
+                <div class="info-details">
+                  <span class="info-title">Tailscale VPN (tun0)</span>
+                  <span class="info-value mono" id="tailscaleIpText"
+                    >100.108.43.122</span
+                  >
+                </div>
+                <span class="badge badge-success">Mesh Cifrada</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- PERSIANA COLAPSABLE DE TAREAS Y SUPERVISOR -->
+        <section class="collapsible-section" id="tasksSection">
+          <div
+            class="collapsible-header"
+            id="tasksHeader"
+            title="Toca para desplegar herramientas de demostración"
+          >
+            <div class="header-left">
+              <i class="fa-solid fa-cubes icon-purple"></i>
+              <div>
+                <h3>Gestor de Procesos, Watchdog & Scale-to-Zero</h3>
+                <p class="subtitle">
+                  Herramientas de demostración y supervisor de microservicios
+                </p>
+              </div>
+            </div>
+            <div class="header-right">
+              <span class="badge badge-info" id="tasksCountBadge"
+                >3 Tareas</span
+              >
+              <i
+                class="fa-solid fa-chevron-down toggle-icon"
+                id="tasksToggleIcon"
+              ></i>
+            </div>
+          </div>
+
+          <div class="collapsible-body" id="tasksBody">
+            <div class="tasks-table-container">
+              <table class="tasks-table">
+                <thead>
+                  <tr>
+                    <th>Nombre & Descripción</th>
+                    <th>Tipo / Categoría</th>
+                    <th>Estado</th>
+                    <th>Consumo RAM</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tasksTableBody">
+                  <!-- Se rellena dinámicamente -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- ========================================== -->
+      <!-- PESTAÑA 2: APP HUB (TIENDA EN 1 CLIC)     -->
+      <!-- ========================================== -->
+      <main class="tab-content" id="tab-apphub">
+        <div class="section-intro">
+          <h2>
+            <i class="fa-solid fa-store icon-cyan"></i> Centro de Integraciones
+            en 1 Clic
+          </h2>
+          <p class="subtitle">
+            Instala y ejecuta microservicios optimizados para ARM sin tocar la
+            terminal.
+          </p>
+        </div>
+
+        <div class="apps-grid" id="appsGrid">
+          <!-- Renderizado dinámico de PocketBase, AdGuard y Gotify -->
+        </div>
+      </main>
+
+      <!-- ========================================== -->
+      <!-- PESTAÑA 3: DESPLEGADOR WEB (ESTILO VERCEL)-->
+      <!-- ========================================== -->
+      <main class="tab-content" id="tab-deployer">
+        <div class="section-intro">
+          <h2>
+            <i class="fa-solid fa-rocket icon-orange"></i> Desplegador de
+            Proyectos Web
+          </h2>
+          <p class="subtitle">
+            Aloja páginas web y landing pages directamente en tu mini servidor
+            casero.
+          </p>
+        </div>
+
+        <div class="card form-card">
+          <div class="card-header">
+            <div class="card-title">
+              <i class="fa-solid fa-code"></i>
+              <span>Crear y Desplegar Nueva Web</span>
+            </div>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label>Nombre del Proyecto / Sitio Web:</label>
+                <input
+                  type="text"
+                  id="deployName"
+                  class="input-field"
+                  placeholder="Ej: mi-portafolio, tienda-online"
+                  autocomplete="off"
+                />
+              </div>
+              <div class="form-group">
+                <label>Código HTML / Contenido Inicial:</label>
+                <textarea
+                  id="deployHtml"
+                  rows="5"
+                  placeholder="<!DOCTYPE html><html>...</html>"
+                  class="input-field mono"
+                ></textarea>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" id="btnDeployProject" style="flex: 1;">
+                  <i class="fa-solid fa-cloud-arrow-up"></i> Desplegar HTML Simple
+                </button>
+              </div>
+              
+              <hr style="border: 1px solid #1e293b; margin: 20px 0;">
+              
+              <div class="form-group">
+                <label>🚀 Opción Pro: Subir Carpeta Web (.ZIP)</label>
+                <p style="font-size: 0.8rem; color: #94a3b8; margin-top: 5px;">Asegúrate de que tu archivo <code>index.html</code> esté en la raíz del ZIP (no dentro de otra subcarpeta).</p>
+                <input type="file" id="deployZip" accept=".zip" class="input-field" style="padding: 10px; background: var(--bg-dark); cursor: pointer;" />
+              </div>
+              <button class="btn btn-primary" id="btnDeployZip" style="width: 100%; background: #6366f1;">
+                <i class="fa-solid fa-file-zipper"></i> Desplegar .ZIP
+              </button>
+
+            </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <i class="fa-solid fa-globe"></i> <span>Sitios Web Alojados</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <ul class="projects-list" id="projectsList">
+              <!-- Renderizado dinámico -->
+            </ul>
+          </div>
+        </div>
+      </main>
+
+      <!-- ========================================== -->
+      <!-- PESTAÑA 4: ALERTAS & AJUSTES              -->
+      <!-- ========================================== -->
+      <main class="tab-content" id="tab-settings">
+        <div class="section-intro">
+          <h2>
+            <i class="fa-solid fa-bell icon-emerald"></i> Canales de
+            Notificaciones & Gobernador
+          </h2>
+          <p class="subtitle">
+            Recibe alertas en tu móvil personal ante cortes de luz, caídas de
+            red o calor.
+          </p>
+        </div>
+
+        <div class="settings-grid">
+          <!-- Tarjeta Telegram -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <i class="fa-brands fa-telegram icon-cyan"></i>
+                <span>Canal de Telegram</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="cfgTelegramEnabled" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label>Bot Token de Telegram:</label>
+                <input
+                  type="text"
+                  id="cfgTelegramToken"
+                  placeholder="123456789:ABCdef..."
+                  class="input-field mono"
+                />
+              </div>
+              <div class="form-group">
+                <label>Chat ID:</label>
+                <input
+                  type="text"
+                  id="cfgTelegramChatId"
+                  placeholder="-100123456789 o tu ID"
+                  class="input-field mono"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Tarjeta Discord -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <i class="fa-brands fa-discord icon-purple"></i>
+                <span>Webhook de Discord</span>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="cfgDiscordEnabled" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label>Discord Webhook URL:</label>
+                <input
+                  type="text"
+                  id="cfgDiscordWebhook"
+                  placeholder="https://discord.com/api/webhooks/..."
+                  class="input-field mono"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Gobernador Térmico -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <i class="fa-solid fa-temperature-arrow-up icon-orange"></i>
+                <span>Gobernador Térmico del Kernel</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label>Temperatura Máxima Permitida (°C):</label>
+                <input
+                  type="number"
+                  id="cfgThermalMax"
+                  value="41"
+                  min="35"
+                  max="50"
+                  class="input-field"
+                />
+                <small class="text-muted"
+                  >Si la batería supera este valor, las tareas pesadas se
+                  posponen automáticamente.</small
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-actions">
+          <button class="btn btn-secondary" id="btnTestAlert">
+            <i class="fa-solid fa-paper-plane"></i> Enviar Alerta de Prueba
+          </button>
+          <button class="btn btn-primary" id="btnSaveConfig">
+            <i class="fa-solid fa-floppy-disk"></i> Guardar Ajustes
+          </button>
+        </div>
+      </main>
+
+      <!-- FOOTER -->
+      <footer class="main-footer">
+        <p>
+          Android Mini Server Core | Exynos 7870 | Linux Kernel 3.18 Ares |
+          Node.js v26
+        </p>
+        <p class="text-muted">
+          Desarrollado para auto-alojamiento doméstico sostenible y de bajo
+          consumo.
+        </p>
+      </footer>
+    </div>
+
+    <!-- Modal de Logs de Tareas -->
+    <div class="modal-overlay" id="logsModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalTaskTitle">Logs de Ejecución</h3>
+          <button class="modal-close" id="btnCloseModal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <pre class="terminal-logs" id="terminalLogsContent">Cargando...</pre>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+node_modules/
+*.log
+logs/
+certs/*.key
+certs/*.crt
+config.json
+apps/
+data/
+projects/
+.env
+.DS_Store

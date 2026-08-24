@@ -1,0 +1,12 @@
+[
+  {
+    "id": "task-pocketbase",
+    "name": "PocketBase Daemon",
+    "description": "Base de datos SQLite y backend central ejecutandose de forma permanente.",
+    "command": "cd /data/data/com.termux/files/home/termux-dashboard/apps/pocketbase && ./pocketbase serve --http=\"0.0.0.0:8090\"",
+    "type": "daemon",
+    "category": "database",
+    "autoRestart": true,
+    "created_at": "2026-08-24T00:24:32.537Z"
+  }
+]
