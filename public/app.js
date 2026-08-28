@@ -20,6 +20,10 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     if (content) content.classList.add("active");
 
     // Cargas perezosas según pestaña
+    if (targetTab === "tab-offers") {
+      loadOffersStats();
+      loadOffers(1);
+    }
     if (targetTab === "tab-apphub") loadApps();
     if (targetTab === "tab-deployer") loadProjects();
     if (targetTab === "tab-settings") loadConfig();
@@ -165,12 +169,21 @@ async function fetchTelemetry() {
       `<i class="fa-solid fa-temperature-half"></i> ${data.battery.temperature} °C`;
 
     const battBadge = document.getElementById("batteryStatusBadge");
-    if (data.battery.isCharging) {
+    const battLevel = data.battery.level || 0;
+    const battStatus = (data.battery.status || "").toLowerCase();
+
+    if (data.battery.isCharging || (battStatus.includes("charg") && !battStatus.includes("discharg") && !battStatus.includes("not charg"))) {
       battBadge.className = "badge badge-success";
-      battBadge.innerText = "CARGANDO ⚡";
+      battBadge.innerHTML = `<i class="fa-solid fa-bolt"></i> Cargando`;
+    } else if (battStatus.includes("full") || battStatus.includes("completa") || battLevel === 100) {
+      battBadge.className = "badge badge-cyan";
+      battBadge.innerHTML = `<i class="fa-solid fa-plug"></i> Completa`;
+    } else if (battLevel <= 15) {
+      battBadge.className = "badge badge-danger";
+      battBadge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Baja (${battLevel}%)`;
     } else {
-      battBadge.className = "badge badge-warning";
-      battBadge.innerText = data.battery.status;
+      battBadge.className = "badge badge-amber";
+      battBadge.innerHTML = `<i class="fa-solid fa-battery-half"></i> Descargando`;
     }
 
     // Uptime
@@ -313,16 +326,16 @@ async function loadApps() {
         </div>
         <div class="app-actions">
           ${
-            isRunning
-              ? `
-            <button class="btn btn-secondary" style="background:rgba(239,68,68,0.2); color:#ef4444;" onclick="stopApp('${app.id}')">
-              <i class="fa-solid fa-stop"></i> Detener
-            </button>
-            <a href="http://${window.location.hostname}:${app.port}${app.id === 'pocketbase' ? '/_/' : ''}" target="_blank" class="btn btn-primary">
-              <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir Panel
-            </a>
-          `
-              : `
+              isRunning
+                ? `
+              <button class="btn btn-secondary" style="background:rgba(239,68,68,0.2); color:#ef4444;" onclick="stopApp('${app.id}')">
+                <i class="fa-solid fa-stop"></i> Detener
+              </button>
+              ${app.port ? `<a href="http://${window.location.hostname}:${app.port}${app.id === 'pocketbase' ? '/_/' : ''}" target="_blank" class="btn btn-primary">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir Panel
+              </a>` : `<button class="btn btn-primary" onclick="showLogs('${app.id}', '${app.name}')"><i class="fa-solid fa-terminal"></i> Ver Logs</button>`}
+            `
+                : `
             <button class="btn btn-primary" onclick="startApp('${app.id}')">
               <i class="fa-solid fa-bolt"></i> ${app.isInstalled ? "Iniciar Servicio" : "Instalar en 1 Clic"}
             </button>
@@ -411,91 +424,7 @@ async function loadProjects() {
   } catch (e) {}
 }
 
-  document
-    .getElementById("btnDeployProject")
-    .addEventListener("click", async () => {
-      try {
-        const btn = document.getElementById("btnDeployProject");
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Desplegando...';
-        
-        const name = document.getElementById("deployName").value.trim();
-        const htmlContent = document.getElementById("deployHtml").value.trim();
-        if (!name) {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Desplegar Web en 1 Clic';
-          return alert("Por favor ingresa un nombre para el proyecto (sin espacios)");
-        }
-
-        const res = await fetch("/api/projects/deploy", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, htmlContent }),
-        });
-        const data = await res.json();
-        
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Desplegar Web en 1 Clic';
-
-        if (data.error) {
-          alert("❌ Error: " + data.error);
-        } else if (data.success) {
-          alert(`✅ ¡Sitio web '${name}' desplegado con éxito!`);
-          document.getElementById("deployName").value = "";
-          document.getElementById("deployHtml").value = "";
-          loadProjects();
-        }
-      } catch (e) {
-        alert("❌ Error de conexión: " + e.message);
-      }
-    });
-
-  document.getElementById("btnDeployZip").addEventListener("click", async () => {
-    const btn = document.getElementById("btnDeployZip");
-    const name = document.getElementById("deployName").value.trim();
-    const fileInput = document.getElementById("deployZip");
-
-    if (!name) return alert("Por favor ingresa un nombre para el proyecto (sin espacios)");
-    if (!fileInput.files.length) return alert("Por favor selecciona un archivo .zip");
-
-    const file = fileInput.files[0];
-    if (file.size > 20 * 1024 * 1024) return alert("El archivo ZIP no puede superar los 20MB.");
-
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo y Descomprimiendo...';
-
-    const reader = new FileReader();
-    reader.onload = async function() {
-      const zipBase64 = reader.result.split(',')[1];
-      try {
-        const res = await fetch("/api/projects/deploy/zip", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, zipBase64 })
-        });
-        const data = await res.json();
-        
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-file-zipper"></i> Desplegar .ZIP';
-
-        if (data.error) {
-          alert("❌ Error: " + data.error);
-        } else {
-          alert(`✅ ¡Proyecto ZIP '${name}' subido, descomprimido y desplegado con éxito!`);
-          document.getElementById("deployName").value = "";
-          fileInput.value = "";
-          loadProjects();
-        }
-      } catch (e) {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-file-zipper"></i> Desplegar .ZIP';
-        alert("❌ Error de conexión: " + e.message);
-      }
-    };
-    reader.readAsDataURL(file);
-  });
-
-// 7. Configuración de Alertas (Telegram / Discord)
+  // 7. Configuración de Alertas (Telegram / Discord)
 async function loadConfig() {
   try {
     const res = await fetch("/api/config");
@@ -518,7 +447,8 @@ async function loadConfig() {
   } catch (e) {}
 }
 
-document.getElementById("btnSaveConfig").addEventListener("click", async () => {
+const btnSaveConfig = document.getElementById("btnSaveConfig");
+if (btnSaveConfig) btnSaveConfig.addEventListener("click", async () => {
   const cfg = {
     serverName: "Mini Servidor Android",
     thermal: {
@@ -547,7 +477,8 @@ document.getElementById("btnSaveConfig").addEventListener("click", async () => {
   if (data.success) alert("✅ Ajustes y canales de alertas guardados.");
 });
 
-document.getElementById("btnTestAlert").addEventListener("click", async () => {
+const btnTestAlert = document.getElementById("btnTestAlert");
+if (btnTestAlert) btnTestAlert.addEventListener("click", async () => {
   try {
     const res = await fetch("/api/alerts/test", { method: "POST" });
     const data = await res.json();
@@ -596,4 +527,441 @@ document.addEventListener("DOMContentLoaded", () => {
   loadTasks();
   setInterval(fetchTelemetry, 2000);
   setInterval(loadTasks, 4000);
+});
+
+// Reloj en tiempo real
+function updateClock() {
+    const clock = document.getElementById('liveClock');
+    if (clock) {
+        const now = new Date();
+        clock.textContent = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    }
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// =========================================================
+// 10. MÓDULO CAZADOR DE OFERTAS PRO (CATÁLOGO EN VIVO)
+// =========================================================
+let currentOffersPage = 1;
+let offerSearchDebounceTimer = null;
+
+async function loadOffersStats() {
+  try {
+    const res = await fetch("/api/offers/stats");
+    const stats = await res.json();
+    const countEl = document.getElementById("offersTotalCount");
+    const minHistoryEl = document.getElementById("offersMinHistoryCount");
+    if (countEl) countEl.innerText = stats.totalProductos ? stats.totalProductos.toLocaleString('es-CO') : "0";
+    if (minHistoryEl) minHistoryEl.innerText = stats.totalAlertas ? stats.totalAlertas.toLocaleString('es-CO') : "0";
+
+    // Actualizar dinámicamente las opciones del selector de tiendas con sus contadores reales
+    const storeFilter = document.getElementById("offerStoreFilter");
+    if (storeFilter && stats.porTienda) {
+      const selectedVal = storeFilter.value;
+      const tiendasConOfertas = Object.keys(stats.porTienda).sort((a, b) => a.localeCompare(b));
+      let optionsHtml = `<option value="">Todas las Tiendas (${stats.totalProductos || 0} productos)</option>`;
+      const tiendasExcluidas = ['Temu', 'Éxito Supermercado', 'Decathlon', 'Éxito supermercado'];
+      for (const t of tiendasConOfertas) {
+        if (tiendasExcluidas.includes(t)) continue;
+        const count = stats.porTienda[t];
+        const isSel = selectedVal === t ? "selected" : "";
+        optionsHtml += `<option value="${t}" ${isSel}>${t} (${count} prod.)</option>`;
+      }
+      storeFilter.innerHTML = optionsHtml;
+    }
+
+    // Actualizar dinámicamente las opciones del selector de categorías
+    const categoryFilter = document.getElementById("offerCategoryFilter");
+    if (categoryFilter && stats.porCategoria) {
+      const selectedCat = categoryFilter.value;
+      
+      const importancia = {
+        "Tecnología": 1,
+        "Electrodomésticos": 2,
+        "Vehículos": 3,
+        "Hogar": 4,
+        "Deportes": 5,
+        "Herramientas": 6,
+        "Ropa y Moda": 7,
+        "Vuelos y Viajes": 8
+      };
+      
+      const categoriasConOfertas = Object.keys(stats.porCategoria).sort((a, b) => {
+        const pesoA = importancia[a] || 99;
+        const pesoB = importancia[b] || 99;
+        if (pesoA === pesoB) return a.localeCompare(b);
+        return pesoA - pesoB;
+      });
+      
+      let totalCategoriasValidas = 0;
+      let catOptionsHtml = '';
+      for (const c of categoriasConOfertas) {
+        if (!c || c.trim() === '') continue; // Ignorar nulos/vacíos
+        const count = stats.porCategoria[c];
+        if (count === 0) continue;
+        totalCategoriasValidas++;
+        const isSel = selectedCat === c ? "selected" : "";
+        catOptionsHtml += `<option value="${c}" ${isSel}>${c} (${count} prod.)</option>`;
+      }
+      
+      const allCatText = `Todas las Categorías (${totalCategoriasValidas})`;
+      categoryFilter.innerHTML = `<option value="">${allCatText}</option>` + catOptionsHtml;
+    }
+  } catch (e) {
+    console.warn("Error cargando estadísticas de ofertas:", e);
+  }
+}
+
+async function loadOffers(page = 1) {
+  currentOffersPage = page;
+  const grid = document.getElementById("offersGrid");
+  if (!grid) return;
+
+  grid.innerHTML = `
+    <div class="offers-loading">
+      <i class="fa-solid fa-spinner fa-spin"></i>
+      <p>Consultando base de datos SQLite en tiempo real...</p>
+    </div>
+  `;
+
+  const busqueda = (document.getElementById("offerSearchInput")?.value || "").trim();
+  const tienda = document.getElementById("offerStoreFilter")?.value || "";
+  const categoria = document.getElementById("offerCategoryFilter")?.value || "";
+  const ciudad = document.getElementById("offerCityFilter")?.value || "";
+  const orden = document.getElementById("offerSortFilter")?.value || "reciente";
+  const soloMinimo = document.getElementById("offerMinHistoricalToggle")?.checked ? "true" : "false";
+
+  const params = new URLSearchParams({
+    pagina: page,
+    limite: 12,
+    busqueda,
+    tienda,
+    categoria,
+    ciudad,
+    orden,
+    soloMinimo
+  });
+
+  try {
+    const res = await fetch(`/api/offers?${params.toString()}`);
+    const data = await res.json();
+    renderOffers(data);
+  } catch (e) {
+    grid.innerHTML = `
+      <div class="offers-empty">
+        <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>
+        <h3>Error al consultar el catálogo</h3>
+        <p class="text-muted">${e.message}</p>
+      </div>
+    `;
+  }
+}
+
+let historyChartInstance = null;
+
+async function showOfferHistory(productoId, titulo) {
+  const modal = document.getElementById("historyModal");
+  const titleEl = document.getElementById("modalHistoryTitle");
+  const statsEl = document.getElementById("modalHistoryStats");
+  if (!modal) return;
+
+  if (titleEl) titleEl.innerText = titulo;
+  modal.classList.add("open");
+
+  try {
+    const res = await fetch(`/api/offers/${productoId}/history`);
+    const data = await res.json();
+    const history = data.history || [];
+
+    const ctx = document.getElementById("offerHistoryChart").getContext("2d");
+    if (historyChartInstance) {
+      historyChartInstance.destroy();
+    }
+
+    const labels = history.map(h => {
+      const d = new Date(h.fecha);
+      return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    });
+    const prices = history.map(h => h.precio);
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+
+    historyChartInstance = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels.length > 0 ? labels : ["Inicio"],
+        datasets: [{
+          label: "Precio en Pesos ($ COP)",
+          data: prices.length > 0 ? prices : [0],
+          borderColor: "#34d399",
+          backgroundColor: "rgba(52, 211, 153, 0.15)",
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 4,
+          pointBackgroundColor: "#34d399",
+          pointHoverRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => ` $ ${Number(context.raw).toLocaleString('es-CO')} COP`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: "rgba(255,255,255,0.05)" },
+            ticks: { color: "rgba(255,255,255,0.6)", font: { size: 10 } }
+          },
+          y: {
+            grid: { color: "rgba(255,255,255,0.05)" },
+            ticks: {
+              color: "rgba(255,255,255,0.6)",
+              font: { size: 11 },
+              callback: (val) => `$ ${Number(val).toLocaleString('es-CO')}`
+            }
+          }
+        }
+      }
+    });
+
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <div><span class="text-muted">Observaciones:</span> <strong class="mono">${history.length}</strong></div>
+        <div><span class="text-muted">Mínimo:</span> <strong class="mono" style="color: #34d399;">$ ${minPrice ? minPrice.toLocaleString('es-CO') : 0}</strong></div>
+        <div><span class="text-muted">Máximo:</span> <strong class="mono" style="color: #f87171;">$ ${maxPrice ? maxPrice.toLocaleString('es-CO') : 0}</strong></div>
+      `;
+    }
+  } catch (e) {
+    console.error("Error al graficar historial:", e);
+  }
+}
+
+document.getElementById("btnCloseHistoryModal")?.addEventListener("click", () => {
+  document.getElementById("historyModal")?.classList.remove("open");
+});
+
+function renderOffers(data) {
+  const grid = document.getElementById("offersGrid");
+  const pagination = document.getElementById("offersPagination");
+  if (!grid) return;
+
+  if (!data.ofertas || data.ofertas.length === 0) {
+    grid.innerHTML = `
+      <div class="offers-empty">
+        <i class="fa-solid fa-tags"></i>
+        <h3>No se encontraron gangas activas</h3>
+        <p class="text-muted">Prueba cambiando los filtros o buscando otro término.</p>
+      </div>
+    `;
+    if (pagination) pagination.innerHTML = "";
+    return;
+  }
+
+  let html = "";
+  const tiendasExcluidas = ['Temu', 'Éxito Supermercado', 'Decathlon', 'Éxito supermercado'];
+
+  for (const ofr of data.ofertas) {
+    if (tiendasExcluidas.includes(ofr.tienda)) continue;
+
+    const precioActualFmt = Number(ofr.precio_actual || 0).toLocaleString("es-CO");
+    const precioOrigFmt = Number(ofr.precio_original || 0).toLocaleString("es-CO");
+    const ahorroFmt = Number((ofr.precio_original || 0) - (ofr.precio_actual || 0)).toLocaleString("es-CO");
+    const badgeMinimo = ofr.es_minimo_historico ? `<div class="offer-min-history-badge">🔥 ¡MÍNIMO HISTÓRICO!</div>` : "";
+    const tituloEscapado = ofr.titulo.replace(/'/g, "\\'");
+
+    html += `
+      <div class="offer-card">
+        <div>
+          <div class="offer-card-header">
+            <span class="offer-store-badge" data-store="${ofr.tienda}">${ofr.emoji || "🏷️"} ${ofr.tienda}</span>
+            <span class="offer-discount-badge">${ofr.descuento_pct}% DTO</span>
+          </div>
+          <h4 class="offer-title" title="${ofr.titulo}">${ofr.titulo}</h4>
+          <div class="offer-price-box">
+            <div style="display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px;">
+              <span class="offer-current-price">$ ${precioActualFmt}</span>
+              <span class="offer-original-price">Antes: $ ${precioOrigFmt}</span>
+            </div>
+            <div class="offer-saving-badge">
+              <i class="fa-solid fa-piggy-bank"></i> Ahorras: $ ${ahorroFmt} COP
+            </div>
+            ${badgeMinimo}
+          </div>
+        </div>
+        <div class="offer-card-actions">
+          <a href="${ofr.enlace}" target="_blank" rel="noopener noreferrer" class="offer-btn-buy">
+            <i class="fa-solid fa-bolt"></i> Aprovechar Ganga
+          </a>
+          <button class="offer-btn-history" title="Ver historial de precios" onclick="showOfferHistory(${ofr.id}, '${tituloEscapado}')">
+            <i class="fa-solid fa-chart-line"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+  grid.innerHTML = html;
+
+  // Renderizar Paginación
+  if (pagination && data.paginas > 1) {
+    let pagHtml = "";
+    if (data.pagina > 1) {
+      pagHtml += `<button class="btn btn-secondary btn-sm" onclick="loadOffers(${data.pagina - 1})"><i class="fa-solid fa-chevron-left"></i> Anterior</button>`;
+    }
+    pagHtml += `<span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Página ${data.pagina} de ${data.paginas} (${data.total} gangas)</span>`;
+    if (data.pagina < data.paginas) {
+      pagHtml += `<button class="btn btn-secondary btn-sm" onclick="loadOffers(${data.pagina + 1})">Siguiente <i class="fa-solid fa-chevron-right"></i></button>`;
+    }
+    pagination.innerHTML = pagHtml;
+  } else if (pagination) {
+    pagination.innerHTML = "";
+  }
+}
+
+// Listeners de búsqueda y filtros
+document.addEventListener("DOMContentLoaded", () => {
+  const searchInput = document.getElementById("offerSearchInput");
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      clearTimeout(offerSearchDebounceTimer);
+      offerSearchDebounceTimer = setTimeout(() => loadOffers(1), 300);
+    });
+  }
+
+  const storeFilter = document.getElementById("offerStoreFilter");
+  if (storeFilter) storeFilter.addEventListener("change", () => loadOffers(1));
+
+  const catFilter = document.getElementById("offerCategoryFilter");
+  if (catFilter) catFilter.addEventListener("change", () => loadOffers(1));
+
+  const cityFilter = document.getElementById("offerCityFilter");
+  if (cityFilter) cityFilter.addEventListener("change", () => loadOffers(1));
+
+  const sortFilter = document.getElementById("offerSortFilter");
+  if (sortFilter) sortFilter.addEventListener("change", () => loadOffers(1));
+
+  const minToggle = document.getElementById("offerMinHistoricalToggle");
+  if (minToggle) minToggle.addEventListener("change", () => loadOffers(1));
+
+  const btnRefresh = document.getElementById("btnRefreshOffers");
+  if (btnRefresh) btnRefresh.addEventListener("click", () => {
+    loadOffersStats();
+    loadOffers(1);
+  });
+
+  // Modal Control Scrapers
+  const btnConfigScrapers = document.getElementById("btnConfigScrapers");
+  const modalScraperConfig = document.getElementById("scraperConfigModal");
+  const btnCloseScraperConfig = document.getElementById("btnCloseScraperConfig");
+  const btnCancelScraperConfig = document.getElementById("btnCancelScraperConfig");
+  const btnSaveScraperConfig = document.getElementById("btnSaveScraperConfig");
+  const scraperConfigTableBody = document.getElementById("scraperConfigTableBody");
+  
+  let currentScraperConfig = {};
+
+  const closeScraperModal = () => { if (modalScraperConfig) modalScraperConfig.style.display = "none"; };
+  
+  if (btnCloseScraperConfig) btnCloseScraperConfig.addEventListener("click", closeScraperModal);
+  if (btnCancelScraperConfig) btnCancelScraperConfig.addEventListener("click", closeScraperModal);
+  
+  if (btnConfigScrapers) {
+    btnConfigScrapers.addEventListener("click", async () => {
+      if (!modalScraperConfig) return;
+      scraperConfigTableBody.innerHTML = '<tr><td colspan="3">Cargando configuración...</td></tr>';
+      modalScraperConfig.style.display = "flex";
+      try {
+        const res = await fetch('/api/scrapers/config');
+        const data = await res.json();
+        currentScraperConfig = data.config || {};
+        renderScraperConfig();
+      } catch (e) {
+        scraperConfigTableBody.innerHTML = '<tr><td colspan="3">Error al cargar la configuración.</td></tr>';
+      }
+    });
+  }
+
+  function renderScraperConfig() {
+    // Si no hay info, llenamos con las tiendas por defecto
+    const tiendasBasicas = ['mercadolibre', 'alkosto', 'ktronix', 'falabella', 'homecenter', 'exito', 'dafiti', 'jumbo', 'tauret_gamer', 'remates', 'vuelos_latam', 'facebook_marketplace', 'aquilotengo'];
+    tiendasBasicas.forEach(t => {
+      if (!currentScraperConfig[t]) currentScraperConfig[t] = { activo: true, frecuencia: '15m' };
+    });
+
+    let html = '';
+    Object.keys(currentScraperConfig).sort().forEach(tienda => {
+      const conf = currentScraperConfig[tienda];
+      html += `
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+          <td style="padding: 10px; font-weight: bold;">${tienda}</td>
+          <td style="padding: 10px;">
+            <label class="switch">
+              <input type="checkbox" id="cfg_act_${tienda}" ${conf.activo ? 'checked' : ''}>
+              <span class="slider"></span>
+            </label>
+          </td>
+          <td style="padding: 10px;">
+            <select id="cfg_frec_${tienda}" class="input-field" style="width: 120px;">
+              <option value="15m" ${conf.frecuencia === '15m' ? 'selected' : ''}>15 min</option>
+              <option value="1h" ${conf.frecuencia === '1h' ? 'selected' : ''}>1 Hora</option>
+              <option value="8h" ${conf.frecuencia === '8h' ? 'selected' : ''}>3x al Día</option>
+              <option value="diario" ${conf.frecuencia === 'diario' ? 'selected' : ''}>1x al Día</option>
+            </select>
+          </td>
+        </tr>
+      `;
+    });
+    scraperConfigTableBody.innerHTML = html;
+  }
+
+  if (btnSaveScraperConfig) {
+    btnSaveScraperConfig.addEventListener("click", async () => {
+      const btn = btnSaveScraperConfig;
+      btn.disabled = true;
+      btn.innerText = "Guardando...";
+      
+      const tiendas = Object.keys(currentScraperConfig);
+      for (const tienda of tiendas) {
+        const activo = document.getElementById(`cfg_act_${tienda}`)?.checked ?? true;
+        const frecuencia = document.getElementById(`cfg_frec_${tienda}`)?.value ?? '15m';
+        
+        try {
+          await fetch('/api/scrapers/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tienda, activo, frecuencia })
+          });
+        } catch(e) {
+          console.error("Error guardando", tienda, e);
+        }
+      }
+      
+      btn.innerText = "Guardar Cambios";
+      btn.disabled = false;
+      closeScraperModal();
+      alert("Configuración de scrapers guardada correctamente en SQLite.");
+    });
+  }
+
+  // Carga inicial de ofertas y tiendas
+  loadOffersStats();
+  loadOffers(1);
+});
+
+
+// Binding for the new stats button
+document.addEventListener('DOMContentLoaded', () => {
+  const btnStats = document.getElementById('btnConfigScrapersStats');
+  if (btnStats) {
+    btnStats.addEventListener('click', () => {
+      const btnMain = document.getElementById('btnConfigScrapers');
+      if (btnMain) btnMain.click();
+    });
+  }
 });

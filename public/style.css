@@ -1,7 +1,9 @@
 /* =========================================================
-   VARIABLES Y SISTEMA DE DISEÑO MULTI-TEMA (GLASSMORPHISM)
+   SISTEMA CENTRALIZADO DE TOKENS DE DISEÑO (DESIGN TOKENS)
+   Arquitectura Ultraligera Nativa CSS3 (Zero Framework Overhead)
    ========================================================= */
 :root {
+  /* 🎨 1. TOKENS DE COLOR Y SUPERFICIES (Base Cyberpunk) */
   --bg-main: #0a0e17;
   --bg-gradient:
     radial-gradient(
@@ -17,36 +19,78 @@
     #0a0e17;
 
   --card-bg: rgba(18, 24, 38, 0.7);
-  --card-border: rgba(255, 255, 255, 0.07);
-  --card-border-hover: rgba(56, 189, 248, 0.3);
-  --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-
+  --card-bg-gradient: linear-gradient(160deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.88) 100%);
+  --card-inset-bg: #090d16;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-border-hover: rgba(56, 189, 248, 0.45);
+  
+  /* 🔤 2. TOKENS DE TEXTO Y TIPOGRAFÍA */
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
+  --text-price: #10b981;
+  
+  --font-sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
 
+  /* 📏 3. TOKENS DE ESPACIADO Y RADIOS */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 30px;
+
+  /* ⚡ 4. TOKENS DE COLORES DE ACENTO Y GLOW */
   --cyan: #06b6d4;
   --cyan-glow: rgba(6, 182, 212, 0.25);
-
   --emerald: #10b981;
   --emerald-glow: rgba(16, 185, 129, 0.25);
-
   --purple: #8b5cf6;
   --purple-glow: rgba(139, 92, 246, 0.25);
-
   --amber: #f59e0b;
   --amber-glow: rgba(245, 158, 11, 0.25);
-
   --red: #ef4444;
   --red-glow: rgba(239, 68, 68, 0.25);
 
-  --font-sans:
-    "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
-  --radius-lg: 16px;
-  --radius-md: 10px;
-  --radius-sm: 6px;
+  /* 🏬 5. TOKENS DE MARCA (TIENDAS COLOMBIANAS) */
+  --store-ml-bg: rgba(255, 230, 0, 0.18);
+  --store-ml-text: #fde047;
+  --store-ml-border: rgba(255, 230, 0, 0.4);
+
+  --store-alkosto-bg: rgba(0, 70, 145, 0.3);
+  --store-alkosto-text: #93c5fd;
+  --store-alkosto-border: rgba(147, 197, 253, 0.45);
+
+  --store-falabella-bg: rgba(0, 136, 54, 0.25);
+  --store-falabella-text: #86efac;
+  --store-falabella-border: rgba(134, 239, 172, 0.4);
+
+  --store-homecenter-bg: rgba(222, 0, 40, 0.25);
+  --store-homecenter-text: #fca5a5;
+  --store-homecenter-border: rgba(239, 68, 68, 0.4);
+
+  --store-exito-bg: rgba(234, 179, 8, 0.25);
+  --store-exito-text: #fde047;
+  --store-exito-border: rgba(250, 204, 21, 0.4);
+
+  --store-decathlon-bg: rgba(2, 132, 199, 0.3);
+  --store-decathlon-text: #7dd3fc;
+  --store-decathlon-border: rgba(125, 211, 252, 0.45);
+
+  --store-farmatodo-bg: rgba(30, 58, 138, 0.35);
+  --store-farmatodo-text: #bfdbfe;
+  --store-farmatodo-border: rgba(191, 219, 254, 0.45);
+
+  /* 🎞️ 6. TOKENS DE SOMBRAS Y TRANSICIONES */
+  --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --card-shadow-hover: 0 16px 36px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.15);
+  --transition-fast: all 0.15s ease;
+  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* TEMA OLED (Negro Puro Ultra Minimalista) */
@@ -190,6 +234,31 @@ body {
   margin-top: 2px;
 }
 
+/* RELOJ DIGITAL CENTRAL */
+.header-center-clock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 8px 22px;
+  border-radius: 30px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4), 0 0 15px rgba(6, 182, 212, 0.15);
+}
+
+.header-center-clock .clock-display {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 1px;
+}
+
+.header-center-clock i {
+  font-size: 1.1rem;
+  color: #38bdf8;
+}
+
 .header-badges {
   display: flex;
   gap: 16px;
@@ -251,6 +320,9 @@ body {
   font-weight: 600;
   letter-spacing: 0.4px;
   text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .badge-success {
@@ -1225,20 +1297,36 @@ body {
 
 .input-field {
   width: 100%;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--card-border);
+  background: #0f172a !important;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  color: var(--text-primary);
+  padding: 11px 14px;
+  color: #f8fafc !important;
   font-family: var(--font-sans);
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   margin-top: 6px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: all 0.2s ease;
+  color-scheme: dark !important;
 }
 
 .input-field:focus {
-  border-color: var(--cyan);
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+}
+
+select.input-field option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  padding: 12px 14px;
+  font-size: 0.92rem;
+}
+
+select.input-field option:hover,
+select.input-field option:focus,
+select.input-field option:checked {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
 }
 
 .settings-actions {
@@ -1336,3 +1424,324 @@ input:checked + .slider:before {
 .btn-primary:hover { background: rgba(16, 185, 129, 0.35); }
 .btn-secondary { background: rgba(255, 255, 255, 0.05); color: var(--text-primary); border-color: var(--card-border); }
 .btn-secondary:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* =========================================================
+   ESTILOS: CAZADOR DE OFERTAS (CATÁLOGO PRO v4.0)
+   ========================================================= */
+.offers-stats-banner {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.offers-stat-box {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.offers-stat-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.offers-stat-val {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono, monospace);
+}
+
+.offers-stat-lbl {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.offers-filter-card {
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.offers-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.offers-filter-grid .filter-search {
+  grid-column: span 2;
+}
+
+@media (max-width: 768px) {
+  .offers-filter-grid .filter-search {
+    grid-column: span 1;
+  }
+}
+
+.offers-filter-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--card-border);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.offers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 18px;
+}
+
+/* =========================================================
+   TARJETA OLED MINIMAL (Sobria, Elegante y de Alto Contraste)
+   ========================================================= */
+.offer-card {
+  background: #141416;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.offer-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  background: #18181b;
+}
+
+.offer-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.offer-store-badge {
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #1f1f23;
+  color: #e4e4e7;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.2px;
+}
+
+/* Insignias de Tienda Sobrias / Desaturadas (OLED Minimal) */
+.offer-store-badge[data-store*="MercadoLibre"] { color: #fde047; border-color: rgba(253, 224, 71, 0.2); }
+.offer-store-badge[data-store*="Hardware Gamer"] { color: #c084fc; border-color: rgba(192, 132, 252, 0.3); background: rgba(192, 132, 252, 0.08); }
+.offer-store-badge[data-store*="Remates"] { color: #fbbf24; border-color: rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.08); }
+.offer-store-badge[data-store*="Vuelos Flash"] { color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.08); }
+.offer-store-badge[data-store*="TuMoto"] { color: #f87171; border-color: rgba(248, 113, 113, 0.2); }
+.offer-store-badge[data-store*="Alkosto"] { color: #93c5fd; border-color: rgba(147, 197, 253, 0.2); }
+.offer-store-badge[data-store*="Ktronix"] { color: #fca5a5; border-color: rgba(252, 165, 165, 0.2); }
+.offer-store-badge[data-store*="Falabella Perfumería"] { color: #e879f9; border-color: rgba(232, 121, 249, 0.2); }
+.offer-store-badge[data-store*="Falabella"] { color: #86efac; border-color: rgba(134, 239, 172, 0.2); }
+.offer-store-badge[data-store*="Homecenter"] { color: #fca5a5; border-color: rgba(252, 165, 165, 0.2); }
+.offer-store-badge[data-store*="Éxito"] { color: #fde047; border-color: rgba(253, 224, 71, 0.2); }
+.offer-store-badge[data-store*="Dafiti"] { color: #f472b6; border-color: rgba(244, 114, 182, 0.25); background: rgba(244, 114, 182, 0.06); }
+.offer-store-badge[data-store*="Jumbo"] { color: #4ade80; border-color: rgba(74, 222, 128, 0.25); background: rgba(74, 222, 128, 0.06); }
+.offer-store-badge[data-store*="Vélez"] { color: #fde68a; border-color: rgba(253, 230, 138, 0.2); }
+.offer-store-badge[data-store*="Wingo"] { color: #38bdf8; border-color: rgba(56, 189, 248, 0.2); }
+
+/* Etiqueta de Descuento Mate Terracota */
+.offer-discount-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: rgba(234, 88, 12, 0.16);
+  color: #fb923c;
+  border: 1px solid rgba(251, 146, 60, 0.3);
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+
+.offer-title {
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: #f4f4f5;
+  line-height: 1.42;
+  margin-bottom: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.84em;
+}
+
+/* Caja de Precios Fondo Mate Carbón */
+.offer-price-box {
+  background: #0d0d0f;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.offer-current-price {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #ffffff;
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.offer-original-price {
+  font-size: 0.82rem;
+  color: #71717a;
+  text-decoration: line-through;
+  margin-left: 8px;
+  font-family: var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+}
+
+.offer-saving-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.offer-min-history-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fde047;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.25);
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+  letter-spacing: 0.2px;
+}
+
+.offer-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 40px;
+  gap: 8px;
+  align-items: center;
+}
+
+.offer-btn-buy {
+  padding: 10px 14px;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.86rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.offer-btn-buy:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.offer-btn-history {
+  height: 38px;
+  width: 38px;
+  background: #1f1f23;
+  color: #a1a1aa;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.offer-btn-history:hover {
+  background: #27272a;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.offers-loading, .offers-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.offers-loading i, .offers-empty i {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+
+.offers-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 30px;
+  flex-wrap: wrap;
+}
+
+.offers-loading, .offers-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+
+.offers-loading i, .offers-empty i {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  color: var(--accent);
+}
+
+.offers-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 30px;
+  flex-wrap: wrap;
+}
+

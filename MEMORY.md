@@ -1,21 +1,23 @@
 # Memoria de Desarrollo y Estado del Sistema
 
-## 1. Qué Cambió (Caché, Eliminación Web y Despliegue ZIP)
-- **Erradicación de Mocks y Gotify:** Se purgó el código de aplicaciones falsas y de Gotify. PocketBase es la única app mantenida y totalmente funcional.
-- **Botón de Borrado de Webs (Frontend/Backend):** Se agregó el endpoint DELETE /api/projects/:id en el backend que utiliza fs.rmSync para eliminar del disco a los sitios desplegados. En el frontend se agregó un botón visual rojo junto a cada web alojada para invocar esta función.
-- **Motor de Despliegue de ZIP (Pro Deployer):** El Desplegador Web se potenció. Ahora puede recibir paquetes de sitios web enteros (.ZIP de hasta 20 MB). Los codifica en Base64 desde el navegador, los envía al servidor, y el backend usa unzip nativo del Kernel Linux para montarlos automáticamente y desplegarlos.
-- **Caché Web Apagado:** Se ajustaron los enrutadores express.static para que tengan maxAge: 0, eliminando la retención de 1 hora. Esto solucionó el bug crítico de UX donde el usuario no podía ver el botón de borrar recién programado.
-- **Inyección de Termux:Boot:** Se creó el script persistente start_server.sh en ~/.termux/boot/ con WakeLock para asegurar el auto-arranque.
-- **Bypass ADB Inalámbrico:** Se habilitó TCP/IP (puerto 5555) en Android, logrando desconectar el cable USB y mantener control vía Wi-Fi.
+## 1. Qué Cambió (Despliegue ADB Directo, Fix de Interfaz y Migración de BD)
+- **Canal Directo ADB:** Se creó el script maestro `sync_direct.ps1` que sincroniza el código desde el PC al M10 mediante cable USB, empleando `adb su` para inyectar los cambios y reiniciar los servicios saltándose las restricciones de API y payload.
+- **Solución de Fallo de Interfaz:** Se corrigió un `TypeError` fatal en `app.js` causado por la ausencia del HTML de la pestaña "Alertas & Ajustes", el cual congelaba la UI. Se implementó una lógica a prueba de fallos para los event listeners.
+- **Corrección de Base de Datos:** Se ejecutó una migración manual en `hunter.db` (`ALTER TABLE productos ADD COLUMN ciudad TEXT`) para evitar el crasheo del scraper en su arranque. Gracias a esto, el scraper pudo generar la tabla `scraper_config` y levantar la interfaz de control de scrapers de manera dinámica.
+- **Ajuste de Telegram:** Se mitigaron alertas innecesarias de enlaces 404 para evitar spam en el canal técnico, priorizando solo errores FATAL y de hardware.
 
 ## 2. Por Qué Cambió
-El usuario intentó usar el Desplegador Web con un sistema pesado pero la API lo rechazó por protección anti-DoS (límite de 5MB en texto). Además el usuario demandaba un verdadero panel de administración para poder borrar las webs estáticas ya alojadas, y reportó que no estaba viendo los cambios en tiempo real por un problema de Caché en su Android. También surgió la necesidad de desatar el teléfono del cable USB.
+El usuario demandaba un canal de despliegue libre de bloqueos de API. Asimismo, era crítico restaurar la estabilidad del Dashboard tras las refactorizaciones agresivas que dejaron componentes huérfanos. Se requería también corregir la discrepancia de esquemas en SQLite que estaba impidiendo que el motor principal arrancara.
 
-## 3. Archivos Afectados
-- server.js: Agregado endpoint DELETE, agregado el deploy ZIP usando unzip. Cache cambiado a 0.
-- public/app.js: Función deleteProject, lector base64 para subir archivos, inyección del UI del basurero y botón ZIP.
-- public/index.html: Input type file y botón nuevo.
+## 3. Decisiones Técnicas Tomadas
+- Se utilizó `node:sqlite` nativo en un script temporal sobre el M10 para mutar la base de datos sin depender de binarios de sqlite3.
+- Se implementó el control de servicios usando `nohup` y `00-miniserver.sh` en vez de `pm2`, ya que el ecosistema Termux del M10 prescinde de este último.
+- Se diseñó el modal de *Control de Scrapers* para leer la tabla dinámica directamente, haciendo que nuevas tiendas (adaptadores) se listen solas sin requerir tocar el HTML/JS.
 
 ## 4. Estado Actual del Sistema
-- Funciona Perfectamente la instalación, ejecución y eliminación real de sitios web por ZIP. El servidor se inicia inalámbricamente por TCP/IP o de manera automática por Termux:Boot si se apaga el teléfono.
-- Siguiente Paso: El usuario debe probar exitosamente subir un proyecto ZIP complejo.
+**ESTABLE Y EN PRODUCCIÓN.** El Dashboard y el Scraper se comunican fluidamente con `hunter.db`. El canal de subida `sync_direct.ps1` funciona como pipeline oficial de despliegue.
+
+## 5. Próximos Pasos (Monetización)
+- Implementar la inserción de enlaces de afiliados.
+- Comenzar a estructurar el frontend de despliegue a Vercel o la capa de usuario final.
+- Ejecutar la suite de validación (ESLint/Prettier) pendiente a petición del usuario, una vez se inicie la próxima fase.

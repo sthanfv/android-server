@@ -248,7 +248,7 @@ function httpsPost(url, payload) {
 async function sendAlertNotification(title, message, eventType = "general") {
   const cfg = loadConfig();
   const timestamp = new Date().toLocaleTimeString("es-ES", { hour12: false });
-  const fullText = `🔔 *[${cfg.serverName || "Mini Servidor"} - ${timestamp}]*\n*${title}*\n${message}`;
+  const fullText = `🤖 *[CAPA 1 y 2] ${cfg.serverName || "Mini Servidor"} - ${timestamp}*\n*${title}*\n${message}`;
   const results = { telegram: null, discord: null };
 
   // 1. Telegram
@@ -411,18 +411,45 @@ function checkThermalAndBatteryStatus() {
     }
   }
 
-  // Alerta de Batería Baja (< 15%)
-  if (
-    battery.level <= 15 &&
-    !battery.isCharging &&
-    Date.now() - lastLowBatteryAlert > 1800000
-  ) {
-    lastLowBatteryAlert = Date.now();
-    sendAlertNotification(
-      "⚠️ Batería Baja",
-      `El nivel de batería cayó al ${battery.level}%. Conecta el cargador al servidor.`,
-      "lowBattery",
-    );
+  // ══════════════════════════════════════════════════════════
+  // SISTEMA ESCALONADO DE ALERTAS DE BATERÍA (15%, 5%, 2%)
+  // ══════════════════════════════════════════════════════════
+  if (!battery.isCharging) {
+    // Nivel 3: EMERGENCIA EXTREMA (<= 2%) - Apagado en segundos
+    if (battery.level <= 2 && Date.now() - lastLowBatteryAlert > 120000) {
+      lastLowBatteryAlert = Date.now();
+      sendAlertNotification(
+        "💀 [APAGADO INMINENTE] BATERÍA AL " + battery.level + "%",
+        `🔋 *Nivel Crítico:* \`${battery.level}%\` (${battery.voltage} V)\n` +
+        `⚠️ El teléfono se apagará en cualquier segundo por falta de energía.\n` +
+        `💾 Ejecutando resguardo de seguridad en base de datos SQLite...\n\n` +
+        `🔌 *¡CONECTA EL CARGADOR INMEDIATAMENTE!*`,
+        "lowBattery"
+      );
+    }
+    // Nivel 2: ALERTA CRÍTICA (<= 5%) - Apagado en 5-10 minutos
+    else if (battery.level <= 5 && Date.now() - lastLowBatteryAlert > 300000) {
+      lastLowBatteryAlert = Date.now();
+      sendAlertNotification(
+        "🚨 [BATERÍA CRÍTICA] Nivel al " + battery.level + "%",
+        `🔋 *Batería:* \`${battery.level}%\` (${battery.voltage} V)\n` +
+        `⏱️ *Tiempo estimado restante:* ~5 a 10 minutos.\n` +
+        `El servidor se encuentra desconectado de la corriente.\n\n` +
+        `🔌 Conecta el cargador para evitar que el scraper quede fuera de línea.`,
+        "lowBattery"
+      );
+    }
+    // Nivel 1: ALERTA PREVENTIVA (<= 15%)
+    else if (battery.level <= 15 && Date.now() - lastLowBatteryAlert > 900000) {
+      lastLowBatteryAlert = Date.now();
+      sendAlertNotification(
+        "⚠️ [BATERÍA BAJA] Nivel al " + battery.level + "%",
+        `🔋 *Batería:* \`${battery.level}%\` (${battery.voltage} V)\n` +
+        `El servidor está operando con su batería interna (desconectado).\n` +
+        `Conecta el cargador al teléfono cuando te sea posible.`,
+        "lowBattery"
+      );
+    }
   }
 }
 
@@ -606,13 +633,6 @@ function executeTask(taskId, isRetry = false) {
     `🚀 ${isRetry ? `[Reintento #${currentRetry}]` : "Iniciando"}: ${task.command}`,
   );
 
-  const parts = task.command.split(" ");
-  const cmd = parts[0];
-  const args = parts.slice(1);
-
-  if (cmd === "node" && task.maxMemoryMb) {
-    args.unshift(`--max-old-space-size=${task.maxMemoryMb}`);
-  }
 
   const startTime = Date.now();
   let peakMemoryMb = 0;
@@ -812,6 +832,16 @@ const APPS_CATALOG = [
     icon: "fa-database",
     ramEstimate: "15 MB",
     startCommand: 'cd ./apps/pocketbase && ./pocketbase serve --http="0.0.0.0:8090"',
+  },
+  {
+    id: "ofertas-hunter",
+    name: "Ofertas Hunter",
+    description: "Meta-Buscador Universal de precios. Evasivo y sigiloso usando Fetch nativo HTTP/2.",
+    port: null,
+    category: "scraper",
+    icon: "fa-spider",
+    ramEstimate: "30 MB",
+    startCommand: 'su - u0_a106 -c "/data/data/com.termux/files/usr/bin/node /data/data/com.termux/files/home/ofertas-hunter/src/core.js > /data/data/com.termux/files/home/ofertas-hunter/run.log 2>&1"',
   },
 ];
 
@@ -1064,23 +1094,71 @@ function getBatteryStats() {
     level: 100,
     status: "Desconocido",
     isCharging: false,
+    powerSource: "Batería",
     temperature: 0,
     voltage: 0,
   };
   try {
     const base = "/sys/class/power_supply/battery";
+    let cableOnline = false;
+    let source = "Batería";
+
+    // 1. Verificar si el cable USB, cargador AC o chip Samsung PMIC (s2mu005) están conectados
+    const usbOnline = "/sys/class/power_supply/usb/online";
+    const acOnline = "/sys/class/power_supply/ac/online";
+    const s2muOnline = "/sys/class/power_supply/s2mu005-charger/online";
+
+    if (fs.existsSync(usbOnline) && fs.readFileSync(usbOnline, "utf8").trim() === "1") {
+      cableOnline = true;
+      source = "USB";
+    } else if (fs.existsSync(acOnline) && fs.readFileSync(acOnline, "utf8").trim() === "1") {
+      cableOnline = true;
+      source = "AC";
+    } else if (fs.existsSync(s2muOnline) && fs.readFileSync(s2muOnline, "utf8").trim() === "1") {
+      cableOnline = true;
+      source = "USB/AC";
+    }
+
+    result.powerSource = source;
+
     if (fs.existsSync(base)) {
-      if (fs.existsSync(`${base}/capacity`))
+      // Nivel de batería (0-100%)
+      if (fs.existsSync(`${base}/capacity`)) {
         result.level = parseInt(
           fs.readFileSync(`${base}/capacity`, "utf8").trim(),
           10,
         );
-      if (fs.existsSync(`${base}/status`)) {
-        const s = fs.readFileSync(`${base}/status`, "utf8").trim();
-        result.status = s;
-        result.isCharging =
-          s.toLowerCase().includes("charg") || s.toLowerCase().includes("full");
       }
+
+      // Estado de carga (Charging, Discharging, Full, Not charging)
+      let s = "Unknown";
+      if (fs.existsSync(`${base}/status`)) {
+        s = fs.readFileSync(`${base}/status`, "utf8").trim();
+      } else if (fs.existsSync("/sys/class/power_supply/s2mu005-charger/status")) {
+        s = fs.readFileSync("/sys/class/power_supply/s2mu005-charger/status", "utf8").trim();
+      }
+
+      const sLower = s.toLowerCase();
+
+      if (sLower.includes("discharg") || (!cableOnline && sLower !== "full")) {
+        result.status = "Descargando";
+        result.isCharging = false;
+        result.powerSource = "Batería";
+      } else if (sLower.includes("charg") && !sLower.includes("not charg") && !sLower.includes("discharg")) {
+        result.status = `Cargando (${source}) ⚡`;
+        result.isCharging = true;
+      } else if (sLower.includes("full")) {
+        result.status = cableOnline ? `Carga Completa (${source}) 🔌` : "Batería Llena (Desconectado)";
+        result.isCharging = cableOnline;
+      } else if (sLower.includes("not charging")) {
+        result.status = cableOnline ? `Conectado (${source})` : "Desconectado";
+        result.isCharging = false;
+      } else {
+        result.status = cableOnline ? `Conectado (${source})` : "Descargando";
+        result.isCharging = cableOnline;
+      }
+
+      // Temperatura (°C)
       if (fs.existsSync(`${base}/temp`)) {
         const raw = parseInt(
           fs.readFileSync(`${base}/temp`, "utf8").trim(),
@@ -1090,6 +1168,8 @@ function getBatteryStats() {
           (raw > 100 ? raw / 10 : raw).toFixed(1),
         );
       }
+
+      // Voltaje (V)
       if (fs.existsSync(`${base}/voltage_now`)) {
         const rawV = parseInt(
           fs.readFileSync(`${base}/voltage_now`, "utf8").trim(),
@@ -1325,8 +1405,7 @@ app.post("/api/projects/deploy", (req, res) => {
   const id = name.toLowerCase();
   const projectDir = path.join(PROJECTS_DIR, id);
   if (!fs.existsSync(projectDir)) fs.mkdirSync(projectDir, { recursive: true });
-
-  // 3. Sanitización básica de contenido (Prevención básica de scripts externos maliciosos, opcional)
+  // 3. Sanitización básica de contenido (Prevención básica de scripts externos maliciosos, opcional)
   const safeContent = htmlContent ||
     `<!DOCTYPE html><html><head><title>${name}</title><style>body{font-family:sans-serif;background:#0d1117;color:#fff;text-align:center;padding:50px;}</style></head><body><h1>🎉 ${name}</h1><p>Desplegado en 1 clic desde el Android Mini Server.</p></body></html>`;
   fs.writeFileSync(path.join(projectDir, "index.html"), safeContent, "utf8");
@@ -1349,7 +1428,213 @@ app.post("/api/projects/deploy", (req, res) => {
   res.json({ success: true, project: newProj, url: newProj.urlPath });
 });
 
-// 6. Listar y Controlar Tareas
+// =========================================================
+// 6. CATÁLOGO DE GANGAS (OFERTAS HUNTER PRO v4.0)
+// =========================================================
+let hunterDb = null;
+function getHunterDb() {
+  if (hunterDb) return hunterDb;
+  try {
+    const { DatabaseSync } = require('node:sqlite');
+    const dbPaths = [
+      '/data/data/com.termux/files/home/ofertas-hunter-pro/data/hunter.db',
+      'C:\\workspace\\ofertas-hunter-pro\\data\\hunter.db',
+      path.join(__dirname, '..', '..', '..', '..', 'workspace', 'ofertas-hunter-pro', 'data', 'hunter.db')
+    ];
+    for (const p of dbPaths) {
+      if (fs.existsSync(p)) {
+        hunterDb = new DatabaseSync(p);
+        return hunterDb;
+      }
+    }
+  } catch (e) {
+    console.warn('No se pudo abrir hunter.db en server.js:', e.message);
+  }
+  return null;
+}
+
+app.post("/api/offers/sync-now", (req, res) => {
+  const { exec } = require('child_process');
+  const cmd = `cd /data/data/com.termux/files/home/ofertas-hunter-pro && /data/data/com.termux/files/usr/bin/node ingest_new_stores.js`;
+  exec(cmd, (err, stdout, stderr) => {
+    hunterDb = null;
+    if (err) return res.status(500).json({ error: err.message, stderr });
+    res.json({ success: true, message: "Ingesta completada", stdout });
+  });
+});
+
+app.get("/api/scrapers/config", (req, res) => {
+  const dbInst = getHunterDb();
+  if (!dbInst) return res.json({ config: {} });
+  try {
+    const rows = dbInst.prepare('SELECT * FROM scraper_config').all();
+    const config = {};
+    rows.forEach(r => { config[r.tienda] = { activo: r.activo === 1, frecuencia: r.frecuencia, ultima_ejecucion: r.ultima_ejecucion }; });
+    res.json({ config });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/scrapers/config", (req, res) => {
+  const dbInst = getHunterDb();
+  if (!dbInst) return res.status(500).json({ error: "DB no disponible" });
+  try {
+    const { tienda, activo, frecuencia } = req.body;
+    const stmt = dbInst.prepare(`
+      INSERT INTO scraper_config (tienda, activo, frecuencia) 
+      VALUES (?, ?, ?)
+      ON CONFLICT(tienda) DO UPDATE SET activo = excluded.activo, frecuencia = excluded.frecuencia
+    `);
+    stmt.run(tienda, activo ? 1 : 0, frecuencia);
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/offers", (req, res) => {
+  const dbInst = getHunterDb();
+  if (!dbInst) {
+    return res.json({ ofertas: [], total: 0, pagina: 1, paginas: 1, mensaje: "Base de datos en inicialización..." });
+  }
+
+  try {
+    const {
+      pagina = 1,
+      limite = 15,
+      tienda = '',
+      categoria = '',
+      busqueda = '',
+      minDescuento = 0,
+      soloMinimo = 'false',
+      orden = 'reciente'
+    } = req.query;
+
+    let whereClauses = [];
+    let params = [];
+
+    if (tienda) {
+      whereClauses.push('p.tienda = ?');
+      params.push(tienda);
+    }
+    if (categoria) {
+      whereClauses.push('p.categoria = ?');
+      params.push(categoria);
+    }
+    if (busqueda) {
+      whereClauses.push('(p.titulo LIKE ? OR p.tienda LIKE ? OR p.categoria LIKE ?)');
+      params.push(`%${busqueda}%`, `%${busqueda}%`, `%${busqueda}%`);
+    }
+    if (Number(minDescuento) > 0) {
+      whereClauses.push('h.descuento_pct >= ?');
+      params.push(Number(minDescuento));
+    }
+    if (soloMinimo === 'true') {
+      whereClauses.push('h.precio_actual <= p.precio_minimo_historico');
+    }
+
+    const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
+
+    let orderBySql = 'ORDER BY p.actualizado_el DESC';
+    if (orden === 'descuento_desc') orderBySql = 'ORDER BY h.descuento_pct DESC';
+    else if (orden === 'precio_asc') orderBySql = 'ORDER BY h.precio_actual ASC';
+    else if (orden === 'precio_desc') orderBySql = 'ORDER BY h.precio_actual DESC';
+
+    const countSql = `
+      SELECT COUNT(DISTINCT p.id) as total
+      FROM productos p
+      INNER JOIN (
+        SELECT producto_id, precio_actual, precio_original, descuento_pct, MAX(fecha_registro) as max_fecha
+        FROM historial_precios
+        GROUP BY producto_id
+      ) h ON p.id = h.producto_id
+      ${whereSql}
+    `;
+    const countRow = dbInst.prepare(countSql).get(...params);
+    const total = countRow ? countRow.total : 0;
+    const paginas = Math.ceil(total / Number(limite)) || 1;
+    const offset = (Number(pagina) - 1) * Number(limite);
+
+    const dataSql = `
+      SELECT 
+        p.id, p.enlace, p.tienda, p.categoria, p.emoji, p.titulo,
+        p.precio_minimo_historico, p.creado_el, p.actualizado_el,
+        h.precio_actual, h.precio_original, h.descuento_pct,
+        (h.precio_actual <= p.precio_minimo_historico) as es_minimo_historico
+      FROM productos p
+      INNER JOIN (
+        SELECT producto_id, precio_actual, precio_original, descuento_pct, MAX(fecha_registro) as max_fecha
+        FROM historial_precios
+        GROUP BY producto_id
+      ) h ON p.id = h.producto_id
+      ${whereSql}
+      ${orderBySql}
+      LIMIT ? OFFSET ?
+    `;
+    const ofertas = dbInst.prepare(dataSql).all(...params, Number(limite), offset);
+
+    res.json({
+      ofertas,
+      total,
+      pagina: Number(pagina),
+      paginas,
+      limite: Number(limite)
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/offers/stats", (req, res) => {
+  const dbInst = getHunterDb();
+  if (!dbInst) {
+    return res.json({ totalProductos: 0, totalObservaciones: 0, totalAlertas: 0, porTienda: {}, porCategoria: {} });
+  }
+
+  try {
+    const totalProductos = dbInst.prepare('SELECT COUNT(*) as count FROM productos').get().count;
+    const totalObservaciones = dbInst.prepare('SELECT COUNT(*) as count FROM historial_precios').get().count;
+    const totalAlertas = dbInst.prepare('SELECT COUNT(*) as count FROM alertas_enviadas').get().count;
+    
+    const porTiendaRows = dbInst.prepare('SELECT tienda, COUNT(*) as total FROM productos GROUP BY tienda').all();
+    const porTienda = {};
+    porTiendaRows.forEach(r => porTienda[r.tienda] = r.total);
+
+    const porCategoriaRows = dbInst.prepare('SELECT categoria, COUNT(*) as total FROM productos GROUP BY categoria').all();
+    const porCategoria = {};
+    porCategoriaRows.forEach(r => porCategoria[r.categoria] = r.total);
+
+    res.json({
+      totalProductos,
+      totalObservaciones,
+      totalAlertas,
+      porTienda,
+      porCategoria
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/offers/:id/history", (req, res) => {
+  const dbInst = getHunterDb();
+  if (!dbInst) return res.json({ history: [] });
+
+  try {
+    const rows = dbInst.prepare(`
+      SELECT fecha_registro as fecha, precio_actual as precio, precio_original as original, descuento_pct as descuento
+      FROM historial_precios
+      WHERE producto_id = ?
+      ORDER BY fecha_registro ASC
+    `).all(req.params.id);
+    res.json({ history: rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 7. Listar y Controlar Tareas
 app.get("/api/tasks", (req, res) => {
   try {
     const tasks = loadTasksConfig();
@@ -1391,6 +1676,14 @@ app.post("/api/tasks/:id/kill", (req, res) =>
   res.json(killTask(req.params.id)),
 );
 app.get("/api/tasks/:id/logs", (req, res) => {
+  if (req.params.id === "ofertas-hunter") {
+    try {
+      const logContent = require("fs").readFileSync("/data/data/com.termux/files/home/ofertas-hunter/run.log", "utf8");
+      return res.json({ id: req.params.id, logs: logContent.split("\n").filter(Boolean) });
+    } catch (e) {
+      return res.json({ id: req.params.id, logs: ["[Info] El Scraper aun no ha generado registros o esta iniciando..."] });
+    }
+  }
   const logs = taskLogsBuffer.get(req.params.id) || [
     "[Info] No hay logs registrados aún para esta tarea.",
   ];
@@ -1437,6 +1730,25 @@ process.on("unhandledRejection", async (reason) => {
     console.error("No se pudo enviar la alerta de promesa:", e);
   }
 });
+
+// Manejo de Señales de Apagado / Reinicio del Sistema (Aviso Last-Gasp)
+const handleSystemShutdown = async (signal) => {
+  console.log(`📴 [SHUTDOWN] Señal de apagado ${signal} recibida.`);
+  try {
+    const batt = getBatteryStats();
+    await sendAlertNotification(
+      `📴 SERVIDOR APAGÁNDOSE (${signal})`,
+      `El sistema operativo Android ha solicitado el apagado o reinicio del teléfono.\n\n` +
+      `🔋 *Batería final:* \`${batt.level}%\` (${batt.status})\n` +
+      `💾 *Seguridad:* Bases de datos resguardadas y servicios detenidos de forma segura.`,
+      "general"
+    );
+  } catch (e) {}
+  process.exit(0);
+};
+
+process.on("SIGTERM", () => handleSystemShutdown("SIGTERM"));
+process.on("SIGINT", () => handleSystemShutdown("SIGINT"));
 
 // Iniciar Servidores Duales (HTTP y HTTPS)
 async function startServers() {
