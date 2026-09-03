@@ -1502,6 +1502,8 @@ function getHunterDb() {
     for (const p of dbPaths) {
       if (fs.existsSync(p)) {
         hunterDb = new DatabaseSync(p);
+        hunterDb.exec('PRAGMA journal_mode = WAL;');
+        hunterDb.exec('PRAGMA busy_timeout = 10000;');
         return hunterDb;
       }
     }
