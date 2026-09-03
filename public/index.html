@@ -23,7 +23,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos Custom Glassmorphism -->
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css?v=4.0" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -71,14 +71,15 @@
           <i class="fa-solid fa-chart-pie"></i> Telemetría
         </button>
         <button class="tab-btn" data-tab="tab-offers">
-          <i class="fa-solid fa-tags"></i> Cazador de Ofertas
+          <i class="fa-solid fa-crosshairs"></i> Inteligencia de Leads
         </button>
         <button class="tab-btn" data-tab="tab-apphub">
           <i class="fa-solid fa-store"></i> App Hub (1-Clic)
         </button>
 
         <button class="tab-btn" data-tab="tab-settings">
-          <i class="fa-solid fa-bell"></i> Alertas & Ajustes
+          <i class="fa-solid fa-sliders"></i>
+          Control & Sistema
         </button>
       </nav>
 
@@ -217,10 +218,10 @@
             </div>
             <div class="chart-legend">
               <span class="legend-item"
-                ><span class="legend-color color-cyan"></span> CPU</span
+                ><span class="legend-dot dot-cyan"></span> CPU</span
               >
               <span class="legend-item"
-                ><span class="legend-color color-purple"></span> RAM</span
+                ><span class="legend-dot dot-purple"></span> RAM</span
               >
             </div>
           </div>
@@ -280,120 +281,98 @@
           </div>
         </div>
 
-        <!-- PERSIANA COLAPSABLE DE TAREAS Y SUPERVISOR -->
-        <section class="collapsible-section" id="tasksSection">
-          <div
-            class="collapsible-header"
-            id="tasksHeader"
-            title="Toca para desplegar herramientas de demostración"
-          >
-            <div class="header-left">
-              <i class="fa-solid fa-cubes icon-purple"></i>
-              <div>
-                <h3>Gestor de Procesos, Watchdog & Scale-to-Zero</h3>
-                <p class="subtitle">
-                  Herramientas de demostración y supervisor de microservicios
-                </p>
-              </div>
-            </div>
-            <div class="header-right">
-              <span class="badge badge-info" id="tasksCountBadge"
-                >3 Tareas</span
-              >
-              <i
-                class="fa-solid fa-chevron-down toggle-icon"
-                id="tasksToggleIcon"
-              ></i>
-            </div>
-          </div>
-
-          <div class="collapsible-body" id="tasksBody">
-            <div class="tasks-table-container">
-              <table class="tasks-table">
-                <thead>
-                  <tr>
-                    <th>Nombre & Descripción</th>
-                    <th>Tipo / Categoría</th>
-                    <th>Estado</th>
-                    <th>Consumo RAM</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="tasksTableBody">
-                  <!-- Se rellena dinámicamente -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </section>
       </main>
 
       <!-- ========================================== -->
-      <!-- PESTAÑA: CAZADOR DE OFERTAS PRO (CATÁLOGO) -->
+      <!-- PESTAÑA: CENTRO DE INTELIGENCIA DE LEADS   -->
       <!-- ========================================== -->
       <main class="tab-content" id="tab-offers">
-        <!-- Banner Superior de Métricas de Gangas -->
+        
+        <!-- SELECTOR DE NICHOS COMERCIALES (SUB-PESTAÑAS MODULARES) -->
+        <div class="niche-selector-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+          <button class="niche-tab active" data-niche="inmobiliario" style="background: var(--primary-color); color: #fff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-building"></i> Inmobiliario & Finca Raíz (Activo)
+          </button>
+          <button class="niche-tab" data-niche="b2b" style="background: var(--card-bg); color: var(--text-muted); border: 1px solid var(--border-color); padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: not-allowed; display: flex; align-items: center; gap: 8px; opacity: 0.6;" title="Próximamente">
+            <i class="fa-solid fa-briefcase"></i> Directorios B2B (Próximamente)
+          </button>
+          <button class="niche-tab" data-niche="vehiculos" style="background: var(--card-bg); color: var(--text-muted); border: 1px solid var(--border-color); padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: not-allowed; display: flex; align-items: center; gap: 8px; opacity: 0.6;" title="Próximamente">
+            <i class="fa-solid fa-car"></i> Vehículos Directos (Próximamente)
+          </button>
+        </div>
+
+        <!-- Banner Superior de Métricas de Leads -->
         <div class="offers-stats-banner">
           <div class="offers-stat-box">
-            <span class="offers-stat-icon">🛍️</span>
+            <span class="offers-stat-icon">🏡</span>
             <div>
-              <span class="offers-stat-val" id="offersTotalCount">--</span>
-              <span class="offers-stat-lbl">Productos en Historial</span>
+              <span class="offers-stat-val" id="offersTotalCount">0</span>
+              <span class="offers-stat-lbl">Propietarios Directos</span>
             </div>
           </div>
           <div class="offers-stat-box">
-            <span class="offers-stat-icon">🏪</span>
+            <span class="offers-stat-icon">📑</span>
             <div>
-              <span class="offers-stat-val" id="offersStoresCount">16</span>
-              <span class="offers-stat-lbl">Tiendas Monitoreadas</span>
+              <span class="offers-stat-val" id="offersStoresCount">1</span>
+              <span class="offers-stat-lbl">Portales Activos (Finca Raíz)</span>
             </div>
           </div>
           <div class="offers-stat-box">
-            <span class="offers-stat-icon">🔥</span>
+            <span class="offers-stat-icon">📱</span>
             <div>
-              <span class="offers-stat-val" id="offersMinHistoryCount">--</span>
-              <span class="offers-stat-lbl">Mínimos Históricos</span>
+              <span class="offers-stat-val" id="offersMinHistoryCount">0</span>
+              <span class="offers-stat-lbl">Teléfonos Verificados</span>
             </div>
           </div>
-          <div class="offers-stat-box" id="btnConfigScrapersStats" style="cursor: pointer; border: 1px solid var(--primary-color);">
-            <span class="offers-stat-icon" style="color: var(--primary-color);">⚙️</span>
+          <div class="offers-stat-box" id="btnExportExcel" style="cursor: pointer; border: 1px solid #10b981; background: rgba(16, 185, 129, 0.1);">
+            <span class="offers-stat-icon" style="color: #10b981;">📥</span>
             <div>
-              <span class="offers-stat-val" style="color: var(--primary-color);">Configurar Scrapers</span>
-              <span class="offers-stat-lbl">Click Aquí</span>
+              <span class="offers-stat-val" style="color: #10b981;">Exportar Excel</span>
+              <span class="offers-stat-lbl">Descargar Leads CSV</span>
             </div>
           </div>
         </div>
 
-        <!-- Barra de Búsqueda y Filtros Inteligentes -->
+        <!-- Barra de Búsqueda y Filtros Inmobiliarios -->
         <div class="card offers-filter-card">
           <div class="offers-filter-grid">
             <div class="filter-group filter-search">
-              <label><i class="fa-solid fa-magnifying-glass"></i> Buscar Gangas:</label>
-              <input type="text" id="offerSearchInput" class="input-field" placeholder="Ej: iPhone, Freidora, Taladro, Vuelo..." />
+              <label><i class="fa-solid fa-magnifying-glass"></i> Buscar por Barrio o Palabra Clave:</label>
+              <input type="text" id="offerSearchInput" class="input-field" placeholder="Ej: Cedritos, Chapinero, Poblado, Casa..." />
             </div>
             <div class="filter-group">
-              <label><i class="fa-solid fa-store"></i> Tienda:</label>
+              <label><i class="fa-solid fa-building"></i> Tipo de Inmueble:</label>
               <select id="offerStoreFilter" class="input-field">
-                <option value="">Cargando Tiendas reales...</option>
+                <option value="">Todos los Tipos</option>
+                <option value="apartamento">Apartamento</option>
+                <option value="casa">Casa</option>
+                <option value="local">Local Comercial</option>
+                <option value="lote">Lote / Terreno</option>
               </select>
             </div>
             <div class="filter-group">
-              <label><i class="fa-solid fa-shapes"></i> Categoría:</label>
+              <label><i class="fa-solid fa-handshake"></i> Operación:</label>
               <select id="offerCategoryFilter" class="input-field">
-                <option value="">Cargando Categorías reales...</option>
+                <option value="">Venta y Arriendo</option>
+                <option value="venta">Solo Venta</option>
+                <option value="arriendo">Solo Arriendo</option>
               </select>
             </div>
             <div class="filter-group">
               <label><i class="fa-solid fa-city"></i> Ciudad:</label>
               <select id="offerCityFilter" class="input-field">
-                <option value="">Todas las Ciudades</option><option value="bogota">Bogotá</option><option value="medellin">Medellín</option><option value="cali">Cali</option><option value="cucuta">Cúcuta</option><option value="barranquilla">Barranquilla</option>
+                <option value="">Todas las Ciudades</option>
+                <option value="bogota">Bogotá D.C.</option>
+                <option value="medellin">Medellín</option>
+                <option value="cali">Cali</option>
+                <option value="barranquilla">Barranquilla</option>
+                <option value="bucaramanga">Bucaramanga</option>
               </select>
             </div>
             <div class="filter-group">
               <label><i class="fa-solid fa-arrow-down-wide-short"></i> Ordenar Por:</label>
               <select id="offerSortFilter" class="input-field">
-                <option value="reciente">Más Recientes</option>
-                <option value="descuento_desc">Mayor Descuento (%)</option>
+                <option value="reciente">Más Recientes (Nuevos Leads)</option>
                 <option value="precio_asc">Menor Precio (COP)</option>
                 <option value="precio_desc">Mayor Precio (COP)</option>
               </select>
@@ -401,32 +380,29 @@
           </div>
           <div class="offers-filter-toggle">
             <label class="toggle-container">
-              <input type="checkbox" id="offerMinHistoricalToggle" />
+              <input type="checkbox" id="offerMinHistoricalToggle" checked />
               <span class="toggle-slider"></span>
-              <span class="toggle-label">🔥 Solo Mínimos Históricos</span>
+              <span class="toggle-label">🎯 Solo Propietarios Directos (Sin Agencias)</span>
             </label>
             <button class="btn btn-primary btn-sm" id="btnRefreshOffers">
-              <i class="fa-solid fa-rotate"></i> Actualizar Catálogo
+              <i class="fa-solid fa-rotate"></i> Actualizar Leads
             </button>
             <button class="btn btn-warning btn-sm" id="btnConfigScrapers" style="margin-left: 10px;">
-              <i class="fa-solid fa-gears"></i> Control de Scrapers
+              <i class="fa-solid fa-gears"></i> Control de Rastreo
             </button>
           </div>
         </div>
 
-        <!-- Grid de Tarjetas de Ofertas -->
+        <!-- Grid de Leads Inmobiliarios -->
         <div class="offers-grid" id="offersGrid">
-          <!-- Renderizado dinámico de tarjetas -->
           <div class="offers-loading">
             <i class="fa-solid fa-spinner fa-spin"></i>
-            <p>Consultando base de datos SQLite en tiempo real...</p>
+            <p>Conectando con la base de datos de leads en SQLite...</p>
           </div>
         </div>
 
         <!-- Paginación -->
-        <div class="offers-pagination" id="offersPagination">
-          <!-- Botones de anterior / página / siguiente -->
-        </div>
+        <div class="offers-pagination" id="offersPagination"></div>
       </main>
 
       <!-- ========================================== -->
@@ -465,7 +441,62 @@
           consumo.
         </p>
       </footer>
-    </div>
+
+      <!-- PESTAÑA 4: ALERTAS & AJUSTES              -->
+      <!-- ========================================== -->
+      <main class="tab-content" id="tab-settings">
+        <div class="metrics-grid">
+          <div class="card metric-card" style="grid-column: span 12;">
+            <div class="card-header">
+              <div class="card-title">
+                <i class="fa-solid fa-cogs icon-cyan"></i>
+                <span>Forzar Escaneo Completo</span>
+              </div>
+            </div>
+            <div class="card-body">
+              <p style="margin-bottom: 20px; color: #a1a1aa;">
+                Fuerza la ejecución inmediata del motor de scraping y análisis matemático sin esperar el temporizador (Cron).
+              </p>
+              <button id="btnEscanearAhora" class="btn-primary" style="padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-bolt"></i>
+                Escanear Ahora (Forzar B2B Brain)
+              </button>
+              <p id="msgEscanear" style="margin-top: 15px; display: none; color: #4ade80; font-weight: bold;"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Estado de Circuit Breakers en tiempo real -->
+        <section class="card mt-4">
+          <h2 class="card-title"><i class="fa-solid fa-shield-halved"></i> Estado de Adaptadores</h2>
+          <div id="circuitBreakersGrid" class="scrapers-grid">
+            <p class="text-muted">Cargando estado de adaptadores...</p>
+          </div>
+        </section>
+
+        <!-- Configuración de notificaciones Telegram -->
+        <section class="card mt-4">
+          <h2 class="card-title"><i class="fa-solid fa-bell"></i> Configuración de Notificaciones</h2>
+          <div class="form-group">
+            <label class="form-label" for="cfgTelegramEnabled">Telegram Activo</label>
+            <input type="checkbox" id="cfgTelegramEnabled">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cfgTelegramToken">Bot Token</label>
+            <input type="text" id="cfgTelegramToken" class="input-field" placeholder="123456:ABC••••••">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cfgTelegramChatId">Chat ID Privado</label>
+            <input type="text" id="cfgTelegramChatId" class="input-field" placeholder="-1001234567890">
+          </div>
+          <div class="form-actions">
+            <button id="btnSaveConfig" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar Configuración</button>
+            <button id="btnTestAlert" class="btn btn-secondary"><i class="fa-solid fa-paper-plane"></i> Enviar Mensaje de Prueba</button>
+          </div>
+        </section>
+      </main>
+
+    </div> 
 
     <!-- Modal de Logs de Tareas -->
     <div class="modal-overlay" id="logsModal">
@@ -532,6 +563,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=1787880536697"></script>
+    <script src="app.js?v=4.0"></script>
   </body>
 </html>

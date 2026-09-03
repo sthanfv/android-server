@@ -4,6 +4,21 @@
  * Gestión de Alertas Webhook y Selector Multi-Tema.
  */
 
+/**
+ * Escapa caracteres HTML para prevenir inyección XSS al insertar en el DOM.
+ * @param {string} texto - Texto a escapar
+ * @returns {string} Texto seguro para insertar en HTML
+ */
+function escaparHtml(texto) {
+  if (!texto) return '';
+  return String(texto)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // 1. Configuración de Pestañas (Tabs)
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -214,21 +229,24 @@ async function fetchTelemetry() {
     }
 
     updateChart(data.cpu.usage, data.memory.percent);
-  } catch (err) {}
+  } catch (err) { console.warn('[Dashboard]', err.message); }
 }
 
-// 4. Persiana de Tareas y Watchdog
+// 4. Persiana de Tareas y Watchdog (Protegido contra elementos ausentes)
 const tasksHeader = document.getElementById("tasksHeader");
 const tasksSection = document.getElementById("tasksSection");
-tasksHeader.addEventListener("click", () => {
-  tasksSection.classList.toggle("open");
-});
+if (tasksHeader && tasksSection) {
+  tasksHeader.addEventListener("click", () => {
+    tasksSection.classList.toggle("open");
+  });
+}
 
 async function loadTasks() {
+  const tbody = document.getElementById("tasksTableBody");
+  if (!tbody) return;
   try {
     const res = await fetch("/api/tasks");
     const data = await res.json();
-    const tbody = document.getElementById("tasksTableBody");
     tbody.innerHTML = "";
 
     data.tasks.forEach((t) => {
@@ -267,9 +285,9 @@ async function loadTasks() {
       tbody.appendChild(tr);
     });
 
-    document.getElementById("tasksCountBadge").innerText =
-      `${data.tasks.length} Tareas`;
-  } catch (e) {}
+    const badge = document.getElementById("tasksCountBadge");
+    if (badge) badge.innerText = `${data.tasks.length} Tareas`;
+  } catch (e) { console.warn('[Dashboard]', e.message); }
 }
 
 async function runTask(id) {
@@ -283,18 +301,20 @@ async function killTask(id) {
 }
 
 async function showLogs(id, name) {
-  document.getElementById("modalTaskTitle").innerText = `Logs de ${name}`;
-  document.getElementById("terminalLogsContent").innerText = "Cargando logs...";
-  document.getElementById("logsModal").classList.add("open");
+  const titleEl = document.getElementById("modalTaskTitle");
+  const contentEl = document.getElementById("terminalLogsContent");
+  const modalEl = document.getElementById("logsModal");
+  if (titleEl) titleEl.innerText = `Logs de ${name}`;
+  if (contentEl) contentEl.innerText = "Cargando logs...";
+  if (modalEl) modalEl.classList.add("open");
 
   const res = await fetch(`/api/tasks/${id}/logs`);
   const data = await res.json();
-  document.getElementById("terminalLogsContent").innerText =
-    data.logs.join("\n");
+  if (contentEl) contentEl.innerText = (data.logs || []).join("\n");
 }
 
-document.getElementById("btnCloseModal").addEventListener("click", () => {
-  document.getElementById("logsModal").classList.remove("open");
+document.getElementById("btnCloseModal")?.addEventListener("click", () => {
+  document.getElementById("logsModal")?.classList.remove("open");
 });
 
 // 5. App Hub (Integraciones en 1 Clic)
@@ -345,7 +365,7 @@ async function loadApps() {
       `;
       grid.appendChild(card);
     });
-  } catch (e) {}
+  } catch (e) { console.warn('[Dashboard]', e.message); }
 }
 
   async function startApp(id) {
@@ -421,7 +441,7 @@ async function loadProjects() {
       `;
       list.appendChild(li);
     });
-  } catch (e) {}
+  } catch (e) { console.warn('[Dashboard]', e.message); }
 }
 
   // 7. Configuración de Alertas (Telegram / Discord)
@@ -444,7 +464,7 @@ async function loadConfig() {
 
     document.getElementById("cfgThermalMax").value =
       cfg.thermal?.maxTemperatureC || 41;
-  } catch (e) {}
+  } catch (e) { console.warn('[Dashboard]', e.message); }
 }
 
 const btnSaveConfig = document.getElementById("btnSaveConfig");
@@ -512,7 +532,7 @@ function applyTheme(index) {
   localStorage.setItem("miniserver_theme", theme.id);
 }
 
-document.getElementById("btnToggleTheme").addEventListener("click", () => {
+document.getElementById("btnToggleTheme")?.addEventListener("click", () => {
   applyTheme(currentThemeIndex + 1);
 });
 
@@ -526,7 +546,6 @@ document.addEventListener("DOMContentLoaded", () => {
   fetchTelemetry();
   loadTasks();
   setInterval(fetchTelemetry, 2000);
-  setInterval(loadTasks, 4000);
 });
 
 // Reloj en tiempo real
@@ -561,7 +580,7 @@ async function loadOffersStats() {
       const selectedVal = storeFilter.value;
       const tiendasConOfertas = Object.keys(stats.porTienda).sort((a, b) => a.localeCompare(b));
       let optionsHtml = `<option value="">Todas las Tiendas (${stats.totalProductos || 0} productos)</option>`;
-      const tiendasExcluidas = ['Temu', 'Éxito Supermercado', 'Decathlon', 'Éxito supermercado'];
+      const tiendasExcluidas = ['Éxito Supermercado', 'Decathlon', 'Éxito supermercado'];
       for (const t of tiendasConOfertas) {
         if (tiendasExcluidas.includes(t)) continue;
         const count = stats.porTienda[t];
@@ -753,12 +772,11 @@ function renderOffers(data) {
   const pagination = document.getElementById("offersPagination");
   if (!grid) return;
 
-  if (!data.ofertas || data.ofertas.length === 0) {
     grid.innerHTML = `
-      <div class="offers-empty">
-        <i class="fa-solid fa-tags"></i>
-        <h3>No se encontraron gangas activas</h3>
-        <p class="text-muted">Prueba cambiando los filtros o buscando otro término.</p>
+      <div class="offers-empty" style="text-align: center; padding: 40px 20px;">
+        <i class="fa-solid fa-building-user" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 15px;"></i>
+        <h3 style="font-size: 1.25rem; margin-bottom: 8px;">No hay leads registrados todavía</h3>
+        <p class="text-muted">La base de datos SQLite se ha reiniciado limpiamente (0 residuos). En cuanto el adaptador capture propietarios directos, se listarán aquí en tiempo real con sus teléfonos.</p>
       </div>
     `;
     if (pagination) pagination.innerHTML = "";
@@ -766,7 +784,7 @@ function renderOffers(data) {
   }
 
   let html = "";
-  const tiendasExcluidas = ['Temu', 'Éxito Supermercado', 'Decathlon', 'Éxito supermercado'];
+  const tiendasExcluidas = ['Éxito Supermercado', 'Decathlon', 'Éxito supermercado'];
 
   for (const ofr of data.ofertas) {
     if (tiendasExcluidas.includes(ofr.tienda)) continue;
@@ -774,26 +792,44 @@ function renderOffers(data) {
     const precioActualFmt = Number(ofr.precio_actual || 0).toLocaleString("es-CO");
     const precioOrigFmt = Number(ofr.precio_original || 0).toLocaleString("es-CO");
     const ahorroFmt = Number((ofr.precio_original || 0) - (ofr.precio_actual || 0)).toLocaleString("es-CO");
-    const badgeMinimo = ofr.es_minimo_historico ? `<div class="offer-min-history-badge">🔥 ¡MÍNIMO HISTÓRICO!</div>` : "";
-    const tituloEscapado = ofr.titulo.replace(/'/g, "\\'");
+    
+    const isNew = ofr.creado_el && (Date.now() - new Date(ofr.creado_el).getTime() < 24 * 60 * 60 * 1000);
+    const isUpdated = ofr.actualizado_el && !isNew && (Date.now() - new Date(ofr.actualizado_el).getTime() < 24 * 60 * 60 * 1000);
+    let badgesEstado = "";
+    if (isNew) badgesEstado += `<div class="badge-nuevo-fuego"><i class="fa-solid fa-fire"></i> NUEVO</div>`;
+    else if (isUpdated) badgesEstado += `<div class="badge-actualizado"><i class="fa-solid fa-arrow-trend-down"></i> BAJÓ</div>`;
+    
+    const tiendaEscapada = escaparHtml(ofr.tienda);
+    const isFB = tiendaEscapada.toLowerCase().includes('facebook');
+    const storeNameDisplay = isFB ? 'Vendedor Local' : tiendaEscapada;
+    const discountBadgeHtml = isFB ? '' : `<span class="offer-discount-badge">${ofr.descuento_pct}% DTO</span>`;
+    const originalPriceHtml = isFB ? '' : `<span class="offer-original-price">Antes: $ ${precioOrigFmt}</span>`;
+    const savingBadgeHtml = isFB || (ofr.precio_original <= ofr.precio_actual) ? '' : `<div class="offer-saving-badge"><i class="fa-solid fa-piggy-bank"></i> Ahorras: $ ${ahorroFmt} COP</div>`;
+    const badgeMinimo = isFB ? '' : (ofr.es_minimo_historico ? `<div class="badge-minimo-historico"><i class="fa-solid fa-fire-flame-curved"></i> ¡MÍNIMO HISTÓRICO!</div>` : "");
+    const badgeGlitch = ofr.esErrorPrecio ? `<div style="background: linear-gradient(90deg, #ef4444, #b91c1c); color: white; padding: 4px 10px; border-radius: 6px; font-weight: 800; font-size: 0.75rem; margin-top: 5px; display: inline-block; animation: pulse 1.5s infinite;"><i class="fa-solid fa-triangle-exclamation"></i> 🚨 GLITCH / ERROR DE PRECIO</div>` : "";
+    const tituloHtml = escaparHtml(ofr.titulo || "");
+    const tituloEscapado = tituloHtml.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+    const extraCardStyle = ofr.esErrorPrecio ? 'border: 2px solid #ef4444; box-shadow: 0 0 15px rgba(239,68,68,0.4);' : '';
 
     html += `
-      <div class="offer-card">
+      <div class="offer-card" style="${extraCardStyle}">
         <div>
           <div class="offer-card-header">
-            <span class="offer-store-badge" data-store="${ofr.tienda}">${ofr.emoji || "🏷️"} ${ofr.tienda}</span>
-            <span class="offer-discount-badge">${ofr.descuento_pct}% DTO</span>
+            <span class="offer-store-badge" data-store="${tiendaEscapada}">${escaparHtml(ofr.emoji) || "📦"} ${storeNameDisplay}</span>
+            ${discountBadgeHtml}
           </div>
-          <h4 class="offer-title" title="${ofr.titulo}">${ofr.titulo}</h4>
+          <h4 class="offer-title" title="${tituloHtml}">${tituloHtml}</h4>
           <div class="offer-price-box">
             <div style="display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px;">
               <span class="offer-current-price">$ ${precioActualFmt}</span>
-              <span class="offer-original-price">Antes: $ ${precioOrigFmt}</span>
+              ${originalPriceHtml}
             </div>
-            <div class="offer-saving-badge">
-              <i class="fa-solid fa-piggy-bank"></i> Ahorras: $ ${ahorroFmt} COP
+            ${savingBadgeHtml}
+            <div>
+              ${badgesEstado}
+              ${badgeMinimo}
+              ${badgeGlitch}
             </div>
-            ${badgeMinimo}
           </div>
         </div>
         <div class="offer-card-actions">
@@ -856,6 +892,13 @@ document.addEventListener("DOMContentLoaded", () => {
     loadOffers(1);
   });
 
+  const btnExport = document.getElementById("btnExportExcel");
+  if (btnExport) {
+    btnExport.addEventListener("click", () => {
+      window.open("/api/leads/export-csv", "_blank");
+    });
+  }
+
   // Modal Control Scrapers
   const btnConfigScrapers = document.getElementById("btnConfigScrapers");
   const modalScraperConfig = document.getElementById("scraperConfigModal");
@@ -888,8 +931,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderScraperConfig() {
-    // Si no hay info, llenamos con las tiendas por defecto
-    const tiendasBasicas = ['mercadolibre', 'alkosto', 'ktronix', 'falabella', 'homecenter', 'exito', 'dafiti', 'jumbo', 'tauret_gamer', 'remates', 'vuelos_latam', 'facebook_marketplace', 'aquilotengo'];
+    // Si no hay info, llenamos con todas las tiendas del sistema
+    const tiendasBasicas = [
+      'mercadolibre', 'alkosto', 'ktronix', 'falabella', 'homecenter', 
+      'exito', 'dafiti', 'jumbo', 'tauret_gamer', 'remates', 
+      'vuelos_latam', 'facebook_marketplace', 'amazon', 'invicta', 
+      'temu', 'aliexpress'
+    ];
     tiendasBasicas.forEach(t => {
       if (!currentScraperConfig[t]) currentScraperConfig[t] = { activo: true, frecuencia: '15m' };
     });
@@ -955,7 +1003,42 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
-// Binding for the new stats button
+// Binding for the Escanear Ahora button
+document.addEventListener('DOMContentLoaded', () => {
+  const btnEscanear = document.getElementById('btnEscanearAhora');
+  const msgEscanear = document.getElementById('msgEscanear');
+  
+  if (btnEscanear) {
+    btnEscanear.addEventListener('click', async () => {
+      btnEscanear.disabled = true;
+      btnEscanear.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Iniciando Escaneo...';
+      
+      try {
+        const res = await fetch('/api/offers/sync-now', { method: 'POST' });
+        const data = await res.json();
+        
+        if (data.status === 'ok') {
+          msgEscanear.textContent = '¡Escaneo Forzado Iniciado! El bot está barriendo las tiendas en segundo plano. Te notificará por Telegram los resultados.';
+          msgEscanear.style.color = '#4ade80';
+          msgEscanear.style.display = 'block';
+        } else {
+          throw new Error('Error en el servidor');
+        }
+      } catch (e) {
+        console.error(e);
+        msgEscanear.textContent = 'Fallo al forzar el escaneo. Revisa los logs.';
+        msgEscanear.style.color = '#ef4444';
+        msgEscanear.style.display = 'block';
+      }
+      
+      setTimeout(() => {
+        btnEscanear.disabled = false;
+        btnEscanear.innerHTML = '<i class="fa-solid fa-bolt"></i> Escanear Ahora (Forzar B2B Brain)';
+        setTimeout(() => msgEscanear.style.display = 'none', 10000);
+      }, 2000);
+    });
+  }
+});
 document.addEventListener('DOMContentLoaded', () => {
   const btnStats = document.getElementById('btnConfigScrapersStats');
   if (btnStats) {

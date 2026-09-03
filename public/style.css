@@ -943,8 +943,9 @@ body {
 }
 
 .modal-card {
-  background: #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  /* Usar variable de tema en lugar de color fijo para soporte multi-tema */
+  background: var(--card-bg, #0f172a);
+  border: 1px solid var(--card-border, rgba(255, 255, 255, 0.12));
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 680px;
@@ -1297,17 +1298,18 @@ body {
 
 .input-field {
   width: 100%;
-  background: #0f172a !important;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  /* Variable de tema con fallback al fondo oscuro original */
+  background: var(--card-bg, #0f172a);
+  border: 1px solid var(--card-border, rgba(255, 255, 255, 0.15));
   border-radius: var(--radius-sm);
   padding: 11px 14px;
-  color: #f8fafc !important;
+  color: var(--text-primary, #f8fafc);
   font-family: var(--font-sans);
   font-size: 0.9rem;
   margin-top: 6px;
   outline: none;
   transition: all 0.2s ease;
-  color-scheme: dark !important;
+  color-scheme: dark;
 }
 
 .input-field:focus {
@@ -1507,11 +1509,12 @@ input:checked + .slider:before {
 }
 
 /* =========================================================
-   TARJETA OLED MINIMAL (Sobria, Elegante y de Alto Contraste)
+   TARJETA DE OFERTA — Respeta el tema activo via variables CSS
    ========================================================= */
 .offer-card {
-  background: #141416;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Usa la variable de fondo del tema activo con fallback al OLED original */
+  background: var(--card-bg, #141416);
+  border: 1px solid var(--card-border, rgba(255, 255, 255, 0.08));
   border-radius: 14px;
   padding: 16px 18px;
   display: flex;
@@ -1525,9 +1528,9 @@ input:checked + .slider:before {
 
 .offer-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(255, 255, 255, 0.22);
+  border-color: var(--card-border-hover, rgba(255, 255, 255, 0.22));
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
-  background: #18181b;
+  background: var(--card-bg-hover, #18181b);
 }
 
 .offer-card-header {
@@ -1568,6 +1571,10 @@ input:checked + .slider:before {
 .offer-store-badge[data-store*="Jumbo"] { color: #4ade80; border-color: rgba(74, 222, 128, 0.25); background: rgba(74, 222, 128, 0.06); }
 .offer-store-badge[data-store*="Vélez"] { color: #fde68a; border-color: rgba(253, 230, 138, 0.2); }
 .offer-store-badge[data-store*="Wingo"] { color: #38bdf8; border-color: rgba(56, 189, 248, 0.2); }
+.offer-store-badge[data-store*="Temu"] { color: #fb923c; border-color: rgba(251, 146, 60, 0.3); background: rgba(251, 146, 60, 0.08); }
+.offer-store-badge[data-store*="AliExpress"] { color: #f87171; border-color: rgba(248, 113, 113, 0.3); background: rgba(248, 113, 113, 0.08); }
+.offer-store-badge[data-store*="Amazon"] { color: #fbbf24; border-color: rgba(251, 191, 36, 0.3); background: rgba(251, 191, 36, 0.08); }
+.offer-store-badge[data-store*="Facebook"] { color: #60a5fa; border-color: rgba(96, 165, 250, 0.3); background: rgba(96, 165, 250, 0.08); }
 
 /* Etiqueta de Descuento Mate Terracota */
 .offer-discount-badge {
@@ -1597,7 +1604,7 @@ input:checked + .slider:before {
 
 /* Caja de Precios Fondo Mate Carbón */
 .offer-price-box {
-  background: #0d0d0f;
+  background: var(--bg-main, #0d0d0f);
   border-radius: 10px;
   padding: 12px 14px;
   margin-bottom: 14px;
@@ -1745,3 +1752,25 @@ input:checked + .slider:before {
   flex-wrap: wrap;
 }
 
+/* Animacion para Badge Nuevo */
+.badge-nuevo-fuego {
+  background: linear-gradient(45deg, rgba(239, 68, 68, 0.15), rgba(249, 115, 22, 0.15));
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: inline-block;
+  margin-right: 5px;
+  margin-top: 5px;
+  animation: pulse-fire 2s infinite alternate;
+}
+.badge-nuevo-fuego i {
+  color: #ef4444;
+  margin-right: 3px;
+}
+@keyframes pulse-fire {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.05); }
+}

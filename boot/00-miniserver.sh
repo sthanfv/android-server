@@ -79,7 +79,9 @@ fi
 # 4. DASHBOARD DE TELEMETRÍA — Panel de monitoreo
 # ══════════════════════════════════════════
 if [ -d "$DASHBOARD_DIR" ]; then
-  pkill -f "node.*server.js" 2>/dev/null
+  pkill -f "server.js" 2>/dev/null
+  pkill -f "index.js" 2>/dev/null
+  killall -9 node 2>/dev/null
   sleep 1
   su u0_a106 -G 3003 -c "export PATH=$TERMUX_BIN:\$PATH; export HOME=$TERMUX_HOME; cd $DASHBOARD_DIR && nohup $TERMUX_BIN/node server.js > $DASHBOARD_DIR/server.log 2>&1 &"
   echo "[$(date)] ✅ Dashboard iniciado (Puerto 3000)" >> "$BOOT_LOG"
@@ -94,7 +96,7 @@ sleep 3
 # 5. OFERTAS HUNTER PRO v3.0 — Scraper empresarial
 # ══════════════════════════════════════════
 if [ -d "$SCRAPER_DIR" ]; then
-  pkill -f "node.*index.js" 2>/dev/null
+  pkill -f "index.js" 2>/dev/null
   sleep 1
   su u0_a106 -G 3003 -c "export PATH=$TERMUX_BIN:\$PATH; export HOME=$TERMUX_HOME; cd $SCRAPER_DIR && nohup $TERMUX_BIN/node index.js > $SCRAPER_DIR/data/logs/scraper.log 2>&1 &"
   echo "[$(date)] ✅ Ofertas Hunter Pro v3.0 iniciado (Daemon)" >> "$BOOT_LOG"
@@ -127,13 +129,22 @@ if [ -f "$SCRAPER_DIR/.env" ]; then
   if [ -n "$BOT_TOKEN" ] && [ -n "$CHAT_ID" ]; then
     BATTERY=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo "?")
     STATUS_BAT=$(cat /sys/class/power_supply/battery/status 2>/dev/null || echo "?")
-    IP_LOCAL=$(ip route get 1 2>/dev/null | awk '{print $NF; exit}' || hostname -I 2>/dev/null | awk '{print $1}')
+    
+    # Extraer IP de wlan0 de forma confiable, si falla intenta con ip route
+    IP_LOCAL=$(ifconfig wlan0 2>/dev/null | awk '/inet / {print $2}')
+    if [ -z "$IP_LOCAL" ]; then
+      IP_LOCAL=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}')
+    fi
+    [ -z "$IP_LOCAL" ] && IP_LOCAL="Desconocida"
+
     TAILSCALE_IP=$(ip a show tun0 2>/dev/null | grep "inet " | awk '{print $2}' | cut -d'/' -f1 || echo "100.108.43.122")
-    FECHA=$(date "+%Y-%m-%d %H:%M:%S")
+    
+    # Fecha en formato 12 horas (AM/PM)
+    FECHA=$(date "+%Y-%m-%d %I:%M:%S %p")
     
     SERVICIOS=""
     pgrep -f "node.*server.js" > /dev/null && SERVICIOS="${SERVICIOS}   ✅ Dashboard (Puerto 3000)\n" || SERVICIOS="${SERVICIOS}   ❌ Dashboard\n"
-    pgrep -f "node.*index.js" > /dev/null && SERVICIOS="${SERVICIOS}   ✅ Scraper v3.0 (Activo)\n" || SERVICIOS="${SERVICIOS}   ❌ Scraper\n"
+    pgrep -f "node.*index.js" > /dev/null && SERVICIOS="${SERVICIOS}   ✅ Motor Estadístico B2B (Activo)\n" || SERVICIOS="${SERVICIOS}   ❌ Motor Estadístico\n"
     (pgrep -f "com.tailscale.ipn" > /dev/null || pgrep -f "tailscaled" > /dev/null) && SERVICIOS="${SERVICIOS}   ✅ Tailscale VPN (Activo)\n" || SERVICIOS="${SERVICIOS}   ❌ Tailscale\n"
     pgrep -f "sshd" > /dev/null && SERVICIOS="${SERVICIOS}   ✅ SSH (Puerto 8022)\n" || SERVICIOS="${SERVICIOS}   ❌ SSH\n"
     
@@ -146,7 +157,7 @@ if [ -f "$SCRAPER_DIR/.env" ]; then
   
   🛠️ *Servicios Operativos:*
   ${SERVICIOS}
-  🤖 Ofertas Hunter Pro v4.0 activo en segundo plano."
+  🤖 Motor B2B en línea y protegiendo el sistema."
 
     $TERMUX_BIN/curl -s -X POST \
       "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \

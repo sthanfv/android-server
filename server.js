@@ -16,6 +16,7 @@ const net = require("net");
 const dns = require("dns");
 dns.setServers(['8.8.8.8', '1.1.1.1']); // Resolver DNS forzado para Termux Root (ENOTFOUND fix)
 const { spawn, exec } = require("child_process");
+const crypto = require("crypto");
 
 // Sistema de Logging de Errores Internos (BUG #8)
 const ERROR_LOG_PATH = path.join(__dirname, "logs", "error.log");
@@ -38,6 +39,21 @@ const HTTPS_PORT = process.env.HTTPS_PORT || 3443;
 const BASE_DIR = __dirname;
 const TASKS_FILE = path.join(BASE_DIR, "tasks.json");
 const CONFIG_FILE = path.join(BASE_DIR, "config.json");
+
+// Check for default credentials (H-07)
+function assertProductionConfig() {
+  if (fs.existsSync(CONFIG_FILE)) {
+    try {
+      const conf = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      if (conf.auth && conf.auth.password === 'securepassword123') {
+        console.error("\n[CRITICAL ERROR] H-07: Credencial predeterminada ('securepassword123') detectada. Cambie la contraseña en config.json antes de arrancar.\n");
+        process.exit(1);
+      }
+    } catch(e) {}
+  }
+}
+assertProductionConfig();
+
 const PROJECTS_FILE = path.join(BASE_DIR, "projects.json");
 const LOGS_DIR = path.join(BASE_DIR, "logs");
 const CERTS_DIR = path.join(BASE_DIR, "certs");
@@ -96,8 +112,14 @@ app.use((req, res, next) => {
     }
   } catch (e) {}
 
-  if (login && password && login === validUser && password === validPass) {
-    return next();
+  if (login && password) {
+    try {
+        const userOk = (login === validUser);
+        const passOk = (password === validPass);
+        if (userOk && passOk) {
+          return next();
+        }
+    } catch(e) {}
   }
   
   // CORRECCIÓN BUG #1/#3: Enviar WWW-Authenticate en TODAS las rutas 401
@@ -833,16 +855,7 @@ const APPS_CATALOG = [
     ramEstimate: "15 MB",
     startCommand: 'cd ./apps/pocketbase && ./pocketbase serve --http="0.0.0.0:8090"',
   },
-  {
-    id: "ofertas-hunter",
-    name: "Ofertas Hunter",
-    description: "Meta-Buscador Universal de precios. Evasivo y sigiloso usando Fetch nativo HTTP/2.",
-    port: null,
-    category: "scraper",
-    icon: "fa-spider",
-    ramEstimate: "30 MB",
-    startCommand: 'su - u0_a106 -c "/data/data/com.termux/files/usr/bin/node /data/data/com.termux/files/home/ofertas-hunter/src/core.js > /data/data/com.termux/files/home/ofertas-hunter/run.log 2>&1"',
-  },
+
 ];
 
 const runningApps = new Map();
@@ -1269,7 +1282,16 @@ app.get("/api/network-events", (req, res) => {
 
 // 3. Configuración y Alertas
 app.get("/api/config", (req, res) => {
-  res.json(loadConfig());
+  const config = loadConfig();
+  const configSegura = JSON.parse(JSON.stringify(config)); // copia profunda
+  if (configSegura.telegram?.botToken) {
+    const tok = configSegura.telegram.botToken;
+    configSegura.telegram.botToken = tok.substring(0, 8) + ':••••••••';
+  }
+  if (configSegura.discord?.webhookUrl) {
+    configSegura.discord.webhookUrl = 'https://discord.com/api/webhooks/••••••';
+  }
+  res.json(configSegura);
 });
 
 app.post("/api/config", (req, res) => {
@@ -1405,7 +1427,8 @@ app.post("/api/projects/deploy", (req, res) => {
   const id = name.toLowerCase();
   const projectDir = path.join(PROJECTS_DIR, id);
   if (!fs.existsSync(projectDir)) fs.mkdirSync(projectDir, { recursive: true });
-  // 3. Sanitización básica de contenido (Prevención básica de scripts externos maliciosos, opcional)
+
+  // 3. Sanitización básica de contenido (Prevención básica de scripts externos maliciosos, opcional)
   const safeContent = htmlContent ||
     `<!DOCTYPE html><html><head><title>${name}</title><style>body{font-family:sans-serif;background:#0d1117;color:#fff;text-align:center;padding:50px;}</style></head><body><h1>🎉 ${name}</h1><p>Desplegado en 1 clic desde el Android Mini Server.</p></body></html>`;
   fs.writeFileSync(path.join(projectDir, "index.html"), safeContent, "utf8");
@@ -1454,13 +1477,35 @@ function getHunterDb() {
 }
 
 app.post("/api/offers/sync-now", (req, res) => {
-  const { exec } = require('child_process');
-  const cmd = `cd /data/data/com.termux/files/home/ofertas-hunter-pro && /data/data/com.termux/files/usr/bin/node ingest_new_stores.js`;
-  exec(cmd, (err, stdout, stderr) => {
-    hunterDb = null;
-    if (err) return res.status(500).json({ error: err.message, stderr });
-    res.json({ success: true, message: "Ingesta completada", stdout });
-  });
+  const dbInst = getHunterDb();
+  if (!dbInst) {
+    sendAlertNotification("❌ Falla en Cerebro B2B", "El orquestador no pudo conectar a la base de datos principal.", "general");
+    return res.status(500).json({ error: "DB no disponible" });
+  }
+
+  try {
+    // 1. Resetear el temporizador de todas las tiendas a 0 para forzar el ciclo
+    dbInst.prepare("UPDATE scraper_config SET ultima_ejecucion = 0").run();
+
+    // 2. Reiniciar el demonio del scraper para que arranque inmediatamente sin usar su
+    const { exec } = require('child_process');
+    const cmd = 'export PATH=/data/data/com.termux/files/usr/bin:$PATH; /data/data/com.termux/files/usr/bin/pkill -f index.js || true; sleep 1; cd /data/data/com.termux/files/home/ofertas-hunter-pro && rm -f data/checkpoints/checkpoint.json && nohup /data/data/com.termux/files/usr/bin/node index.js > data/logs/scraper.log 2>&1 &';
+    
+    exec(cmd, (error) => {
+      if (error) {
+        console.error('Error reiniciando scraper:', error);
+        sendAlertNotification("🚨 [WATCHDOG] Falla Crítica de Orquestador", `El Dashboard intentó reiniciar el Scraper pero el sistema operativo lo bloqueó.\n\n\`\`\`\n${error.message}\n\`\`\``, "general");
+      } else {
+        // Enviar notificación de éxito a Telegram para que el usuario sepa que SÍ arrancó
+        sendAlertNotification("⚡ Motor B2B Iniciado", "El usuario disparó un escaneo forzado desde el Dashboard. El orquestador ha arrancado exitosamente en segundo plano.", "general");
+      }
+    });
+
+    res.json({ status: 'ok', success: true, message: "Temporizadores reiniciados y scraper forzado a iniciar." });
+  } catch(e) {
+    sendAlertNotification("🚨 [WATCHDOG] Crash en Endpoint sync-now", `Excepción interna:\n\`\`\`\n${e.message}\n\`\`\``, "general");
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get("/api/scrapers/config", (req, res) => {
@@ -1505,74 +1550,68 @@ app.get("/api/offers", (req, res) => {
       limite = 15,
       tienda = '',
       categoria = '',
+      ciudad = '',
       busqueda = '',
-      minDescuento = 0,
-      soloMinimo = 'false',
       orden = 'reciente'
     } = req.query;
+
+    const tablaLeads = dbInst.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='leads'").get();
+    if (!tablaLeads) {
+      return res.json({ ofertas: [], total: 0, pagina: 1, paginas: 1 });
+    }
 
     let whereClauses = [];
     let params = [];
 
     if (tienda) {
-      whereClauses.push('p.tienda = ?');
-      params.push(tienda);
+      whereClauses.push('portal = ?');
+      params.push(tienda.toLowerCase());
     }
     if (categoria) {
-      whereClauses.push('p.categoria = ?');
-      params.push(categoria);
+      whereClauses.push('(tipo_inmueble = ? OR operacion = ?)');
+      params.push(categoria.toLowerCase(), categoria.toLowerCase());
+    }
+    if (ciudad) {
+      whereClauses.push('(? = \'\' OR ciudad LIKE ?)');
+      params.push(ciudad, `%${ciudad}%`);
     }
     if (busqueda) {
-      whereClauses.push('(p.titulo LIKE ? OR p.tienda LIKE ? OR p.categoria LIKE ?)');
+      whereClauses.push('(titulo LIKE ? OR barrio LIKE ? OR nombre_contacto LIKE ?)');
       params.push(`%${busqueda}%`, `%${busqueda}%`, `%${busqueda}%`);
-    }
-    if (Number(minDescuento) > 0) {
-      whereClauses.push('h.descuento_pct >= ?');
-      params.push(Number(minDescuento));
-    }
-    if (soloMinimo === 'true') {
-      whereClauses.push('h.precio_actual <= p.precio_minimo_historico');
     }
 
     const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
-    let orderBySql = 'ORDER BY p.actualizado_el DESC';
-    if (orden === 'descuento_desc') orderBySql = 'ORDER BY h.descuento_pct DESC';
-    else if (orden === 'precio_asc') orderBySql = 'ORDER BY h.precio_actual ASC';
-    else if (orden === 'precio_desc') orderBySql = 'ORDER BY h.precio_actual DESC';
+    let orderBySql = 'ORDER BY timestamp_ms DESC';
+    if (orden === 'precio_asc') orderBySql = 'ORDER BY precio ASC';
+    else if (orden === 'precio_desc') orderBySql = 'ORDER BY precio DESC';
 
-    const countSql = `
-      SELECT COUNT(DISTINCT p.id) as total
-      FROM productos p
-      INNER JOIN (
-        SELECT producto_id, precio_actual, precio_original, descuento_pct, MAX(fecha_registro) as max_fecha
-        FROM historial_precios
-        GROUP BY producto_id
-      ) h ON p.id = h.producto_id
-      ${whereSql}
-    `;
-    const countRow = dbInst.prepare(countSql).get(...params);
-    const total = countRow ? countRow.total : 0;
+    const countSql = `SELECT COUNT(*) as total FROM leads ${whereSql}`;
+    const total = dbInst.prepare(countSql).get(...params).total;
     const paginas = Math.ceil(total / Number(limite)) || 1;
     const offset = (Number(pagina) - 1) * Number(limite);
 
-    const dataSql = `
-      SELECT 
-        p.id, p.enlace, p.tienda, p.categoria, p.emoji, p.titulo,
-        p.precio_minimo_historico, p.creado_el, p.actualizado_el,
-        h.precio_actual, h.precio_original, h.descuento_pct,
-        (h.precio_actual <= p.precio_minimo_historico) as es_minimo_historico
-      FROM productos p
-      INNER JOIN (
-        SELECT producto_id, precio_actual, precio_original, descuento_pct, MAX(fecha_registro) as max_fecha
-        FROM historial_precios
-        GROUP BY producto_id
-      ) h ON p.id = h.producto_id
-      ${whereSql}
-      ${orderBySql}
-      LIMIT ? OFFSET ?
-    `;
-    const ofertas = dbInst.prepare(dataSql).all(...params, Number(limite), offset);
+    const dataSql = `SELECT * FROM leads ${whereSql} ${orderBySql} LIMIT ? OFFSET ?`;
+    const rows = dbInst.prepare(dataSql).all(...params, Number(limite), offset);
+
+    // Mapear para renderizado en frontend
+    const ofertas = rows.map(r => ({
+      id: r.id,
+      titulo: r.titulo,
+      tienda: (r.portal || 'Finca Raíz').toUpperCase(),
+      categoria: `${r.tipo_inmueble.toUpperCase()} (${r.operacion.toUpperCase()})`,
+      emoji: r.tipo_inmueble === 'casa' ? '🏡' : '🏢',
+      precioActual: r.precio,
+      precioOriginal: r.precio,
+      descuento_pct: 0,
+      ciudad: r.ciudad ? (r.ciudad.charAt(0).toUpperCase() + r.ciudad.slice(1)) : 'Colombia',
+      barrio: r.barrio || 'Zona Norte',
+      telefono: r.telefono || 'Sin teléfono público',
+      nombreContacto: r.nombre_contacto || 'Particular',
+      enlace: r.enlace,
+      actualizado_el: r.fecha_captura,
+      es_minimo_historico: 1
+    }));
 
     res.json({
       ofertas,
@@ -1593,29 +1632,47 @@ app.get("/api/offers/stats", (req, res) => {
   }
 
   try {
-    const totalProductos = dbInst.prepare('SELECT COUNT(*) as count FROM productos').get().count;
-    const totalObservaciones = dbInst.prepare('SELECT COUNT(*) as count FROM historial_precios').get().count;
-    const totalAlertas = dbInst.prepare('SELECT COUNT(*) as count FROM alertas_enviadas').get().count;
-    
-    const porTiendaRows = dbInst.prepare('SELECT tienda, COUNT(*) as total FROM productos GROUP BY tienda').all();
-    const porTienda = {};
-    porTiendaRows.forEach(r => porTienda[r.tienda] = r.total);
+    const tablaLeads = dbInst.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='leads'").get();
+    if (!tablaLeads) {
+      return res.json({ totalProductos: 0, totalObservaciones: 0, totalAlertas: 0, porTienda: {}, porCategoria: {} });
+    }
 
-    const porCategoriaRows = dbInst.prepare('SELECT categoria, COUNT(*) as total FROM productos GROUP BY categoria').all();
-    const porCategoria = {};
-    porCategoriaRows.forEach(r => porCategoria[r.categoria] = r.total);
+    const totalLeads = dbInst.prepare('SELECT COUNT(*) as count FROM leads').get().count;
+    const totalTelefonos = dbInst.prepare("SELECT COUNT(*) as count FROM leads WHERE telefono != ''").get().count;
+    const totalPortales = dbInst.prepare('SELECT COUNT(DISTINCT portal) as count FROM leads').get().count;
 
     res.json({
-      totalProductos,
-      totalObservaciones,
-      totalAlertas,
-      porTienda,
-      porCategoria
+      totalProductos: totalLeads,
+      totalObservaciones: totalLeads,
+      totalAlertas: totalTelefonos,
+      porTienda: { 'Finca Raíz': totalLeads },
+      porCategoria: { 'Inmobiliario': totalLeads }
     });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
   }
 });
+
+// Endpoint para descarga directa de Leads en Excel / CSV
+app.get("/api/leads/export-csv", (req, res) => {
+  const dbInst = getHunterDb();
+  if (!dbInst) return res.status(500).send("Base de datos no disponible");
+
+  try {
+    const leads = dbInst.prepare("SELECT * FROM leads ORDER BY timestamp_ms DESC").all();
+    let csv = "ID,Fecha,Portal,Tipo,Operacion,Titulo,Precio_COP,Ciudad,Barrio,Contacto,Telefono,Enlace\n";
+    for (const l of leads) {
+      const tit = (l.titulo || '').replace(/"/g, '""');
+      csv += `"${l.id}","${l.fecha_captura}","${l.portal}","${l.tipo_inmueble}","${l.operacion}","${tit}","${l.precio}","${l.ciudad}","${l.barrio}","${l.nombre_contacto}","${l.telefono}","${l.enlace}"\n`;
+    }
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="leads_inmobiliarios_colombia.csv"');
+    res.send("\uFEFF" + csv);
+  } catch (e) {
+    res.status(500).send("Error exportando CSV: " + e.message);
+  }
+});
+
 
 app.get("/api/offers/:id/history", (req, res) => {
   const dbInst = getHunterDb();
