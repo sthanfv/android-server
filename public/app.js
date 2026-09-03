@@ -573,62 +573,8 @@ async function loadOffersStats() {
     const minHistoryEl = document.getElementById("offersMinHistoryCount");
     if (countEl) countEl.innerText = stats.totalProductos ? stats.totalProductos.toLocaleString('es-CO') : "0";
     if (minHistoryEl) minHistoryEl.innerText = stats.totalAlertas ? stats.totalAlertas.toLocaleString('es-CO') : "0";
-
-    // Actualizar dinámicamente las opciones del selector de tiendas con sus contadores reales
-    const storeFilter = document.getElementById("offerStoreFilter");
-    if (storeFilter && stats.porTienda) {
-      const selectedVal = storeFilter.value;
-      const tiendasConOfertas = Object.keys(stats.porTienda).sort((a, b) => a.localeCompare(b));
-      let optionsHtml = `<option value="">Todas las Tiendas (${stats.totalProductos || 0} productos)</option>`;
-      const tiendasExcluidas = ['Éxito Supermercado', 'Decathlon', 'Éxito supermercado'];
-      for (const t of tiendasConOfertas) {
-        if (tiendasExcluidas.includes(t)) continue;
-        const count = stats.porTienda[t];
-        const isSel = selectedVal === t ? "selected" : "";
-        optionsHtml += `<option value="${t}" ${isSel}>${t} (${count} prod.)</option>`;
-      }
-      storeFilter.innerHTML = optionsHtml;
-    }
-
-    // Actualizar dinámicamente las opciones del selector de categorías
-    const categoryFilter = document.getElementById("offerCategoryFilter");
-    if (categoryFilter && stats.porCategoria) {
-      const selectedCat = categoryFilter.value;
-      
-      const importancia = {
-        "Tecnología": 1,
-        "Electrodomésticos": 2,
-        "Vehículos": 3,
-        "Hogar": 4,
-        "Deportes": 5,
-        "Herramientas": 6,
-        "Ropa y Moda": 7,
-        "Vuelos y Viajes": 8
-      };
-      
-      const categoriasConOfertas = Object.keys(stats.porCategoria).sort((a, b) => {
-        const pesoA = importancia[a] || 99;
-        const pesoB = importancia[b] || 99;
-        if (pesoA === pesoB) return a.localeCompare(b);
-        return pesoA - pesoB;
-      });
-      
-      let totalCategoriasValidas = 0;
-      let catOptionsHtml = '';
-      for (const c of categoriasConOfertas) {
-        if (!c || c.trim() === '') continue; // Ignorar nulos/vacíos
-        const count = stats.porCategoria[c];
-        if (count === 0) continue;
-        totalCategoriasValidas++;
-        const isSel = selectedCat === c ? "selected" : "";
-        catOptionsHtml += `<option value="${c}" ${isSel}>${c} (${count} prod.)</option>`;
-      }
-      
-      const allCatText = `Todas las Categorías (${totalCategoriasValidas})`;
-      categoryFilter.innerHTML = `<option value="">${allCatText}</option>` + catOptionsHtml;
-    }
   } catch (e) {
-    console.warn("Error cargando estadísticas de ofertas:", e);
+    console.warn("Error cargando estadísticas de leads inmobiliarios:", e);
   }
 }
 
@@ -843,7 +789,7 @@ function renderOffers(data) {
     if (data.pagina > 1) {
       pagHtml += `<button class="btn btn-secondary btn-sm" onclick="loadOffers(${data.pagina - 1})"><i class="fa-solid fa-chevron-left"></i> Anterior</button>`;
     }
-    pagHtml += `<span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Página ${data.pagina} de ${data.paginas} (${data.total} gangas)</span>`;
+    pagHtml += `<span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Página ${data.pagina} de ${data.paginas} (${data.total} oportunidades directas)</span>`;
     if (data.pagina < data.paginas) {
       pagHtml += `<button class="btn btn-secondary btn-sm" onclick="loadOffers(${data.pagina + 1})">Siguiente <i class="fa-solid fa-chevron-right"></i></button>`;
     }
@@ -923,31 +869,38 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderScraperConfig() {
-    // Si no hay info, llenamos con todas las tiendas del sistema
-    const tiendasBasicas = [
-      'mercadolibre', 'alkosto', 'ktronix', 'falabella', 'homecenter', 
-      'exito', 'dafiti', 'jumbo', 'tauret_gamer', 'remates', 
-      'vuelos_latam', 'facebook_marketplace', 'amazon', 'invicta', 
-      'temu', 'aliexpress'
+    // Portales inmobiliarios del sistema Hunter Pro B2B
+    const portalesDisponibles = [
+      { id: 'fincaraiz', nombre: 'Finca Raíz Colombia', desc: 'Rastreo nacional de propietarios directos (FSBO)' },
+      { id: 'metrocuadrado', nombre: 'Metrocuadrado Colombia', desc: 'Captación de anuncios particulares (Próximamente)' },
+      { id: 'ciencuadras', nombre: 'CienCuadras', desc: 'Módulo de inmuebles sin comisión (Próximamente)' }
     ];
-    tiendasBasicas.forEach(t => {
-      if (!currentScraperConfig[t]) currentScraperConfig[t] = { activo: true, frecuencia: '15m' };
+
+    portalesDisponibles.forEach(p => {
+      if (!currentScraperConfig[p.id]) {
+        currentScraperConfig[p.id] = { activo: p.id === 'fincaraiz', frecuencia: '15m' };
+      }
     });
 
     let html = '';
-    Object.keys(currentScraperConfig).sort().forEach(tienda => {
-      const conf = currentScraperConfig[tienda];
+    portalesDisponibles.forEach(portal => {
+      const conf = currentScraperConfig[portal.id] || { activo: false, frecuencia: '15m' };
+      const esActivo = conf.activo;
       html += `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-          <td style="padding: 10px; font-weight: bold;">${tienda}</td>
-          <td style="padding: 10px;">
+          <td style="padding: 12px 10px;">
+            <div style="font-weight: bold; color: #fff;">${portal.nombre}</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${portal.desc}</div>
+          </td>
+          <td style="padding: 10px; text-align: center;">
             <label class="switch">
-              <input type="checkbox" id="cfg_act_${tienda}" ${conf.activo ? 'checked' : ''}>
+              <input type="checkbox" id="cfg_act_${portal.id}" ${esActivo ? 'checked' : ''}>
               <span class="slider"></span>
             </label>
           </td>
           <td style="padding: 10px;">
-            <select id="cfg_frec_${tienda}" class="input-field" style="width: 120px;">
+            <select id="cfg_frec_${portal.id}" class="input-field" style="width: 120px;">
+              <option value="3m" ${conf.frecuencia === '3m' ? 'selected' : ''}>3 min (En vivo)</option>
               <option value="15m" ${conf.frecuencia === '15m' ? 'selected' : ''}>15 min</option>
               <option value="1h" ${conf.frecuencia === '1h' ? 'selected' : ''}>1 Hora</option>
               <option value="8h" ${conf.frecuencia === '8h' ? 'selected' : ''}>3x al Día</option>
@@ -1039,4 +992,24 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btnMain) btnMain.click();
     });
   }
+
+  // Reloj regresivo en tiempo real para el ciclo de rastreo (3 minutos = 180s)
+  const timerEl = document.getElementById('scraperTimerDisplay');
+  let segundosRestantes = 180;
+
+  setInterval(() => {
+    segundosRestantes--;
+    if (segundosRestantes <= 0) {
+      segundosRestantes = 180;
+      // Auto-recargar leads y estadísticas de la base de datos
+      loadOffersStats();
+      loadOffers(currentOffersPage || 1);
+    }
+
+    if (timerEl) {
+      const min = Math.floor(segundosRestantes / 60);
+      const sec = segundosRestantes % 60;
+      timerEl.innerText = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    }
+  }, 1000);
 });

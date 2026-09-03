@@ -1484,26 +1484,23 @@ app.post("/api/offers/sync-now", (req, res) => {
   }
 
   try {
-    // 1. Resetear el temporizador de todas las tiendas a 0 para forzar el ciclo
+    // 1. Resetear el temporizador en la base de datos
     dbInst.prepare("UPDATE scraper_config SET ultima_ejecucion = 0").run();
 
-    // 2. Reiniciar el demonio del scraper para que arranque inmediatamente sin usar su
+    // 2. Disparar reinicio limpio controlado por PM2
     const { exec } = require('child_process');
-    const cmd = 'export PATH=/data/data/com.termux/files/usr/bin:$PATH; /data/data/com.termux/files/usr/bin/pkill -f index.js || true; sleep 1; cd /data/data/com.termux/files/home/ofertas-hunter-pro && rm -f data/checkpoints/checkpoint.json && nohup /data/data/com.termux/files/usr/bin/node index.js > data/logs/scraper.log 2>&1 &';
+    const cmd = 'export PM2_HOME=/data/data/com.termux/files/home/.pm2; /data/data/com.termux/files/usr/bin/node /data/data/com.termux/files/usr/bin/pm2 restart scraper';
     
     exec(cmd, (error) => {
       if (error) {
-        console.error('Error reiniciando scraper:', error);
-        sendAlertNotification("🚨 [WATCHDOG] Falla Crítica de Orquestador", `El Dashboard intentó reiniciar el Scraper pero el sistema operativo lo bloqueó.\n\n\`\`\`\n${error.message}\n\`\`\``, "general");
+        console.error('Error reiniciando scraper vía PM2:', error);
       } else {
-        // Enviar notificación de éxito a Telegram para que el usuario sepa que SÍ arrancó
-        sendAlertNotification("⚡ Motor B2B Iniciado", "El usuario disparó un escaneo forzado desde el Dashboard. El orquestador ha arrancado exitosamente en segundo plano.", "general");
+        console.log('Scraper reiniciado exitosamente vía PM2.');
       }
     });
 
-    res.json({ status: 'ok', success: true, message: "Temporizadores reiniciados y scraper forzado a iniciar." });
+    res.json({ status: 'ok', success: true, message: "Escaneo disparado en segundo plano vía PM2." });
   } catch(e) {
-    sendAlertNotification("🚨 [WATCHDOG] Crash en Endpoint sync-now", `Excepción interna:\n\`\`\`\n${e.message}\n\`\`\``, "general");
     res.status(500).json({ error: e.message });
   }
 });

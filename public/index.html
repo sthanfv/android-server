@@ -23,7 +23,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos Custom Glassmorphism -->
-    <link rel="stylesheet" href="style.css?v=5.0" />
+    <link rel="stylesheet" href="style.css?v=6.0" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -311,17 +311,17 @@
             </div>
           </div>
           <div class="offers-stat-box">
-            <span class="offers-stat-icon">📑</span>
-            <div>
-              <span class="offers-stat-val" id="offersStoresCount">1</span>
-              <span class="offers-stat-lbl">Portales Activos (Finca Raíz)</span>
-            </div>
-          </div>
-          <div class="offers-stat-box">
             <span class="offers-stat-icon">📱</span>
             <div>
               <span class="offers-stat-val" id="offersMinHistoryCount">0</span>
               <span class="offers-stat-lbl">Teléfonos Verificados</span>
+            </div>
+          </div>
+          <div class="offers-stat-box">
+            <span class="offers-stat-icon">⏱️</span>
+            <div>
+              <span class="offers-stat-val mono" id="scraperTimerDisplay" style="color: #38bdf8;">03:00</span>
+              <span class="offers-stat-lbl">Próximo Barrido Automático</span>
             </div>
           </div>
           <div class="offers-stat-box" id="btnExportExcel" style="cursor: pointer; border: 1px solid #10b981; background: rgba(16, 185, 129, 0.1);">
@@ -537,17 +537,17 @@
       <div class="modal" style="width: 90%; max-width: 600px; padding: 20px;">
         <div class="modal-header">
           <div>
-            <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-gears icon-cyan"></i> Control de Scrapers</h3>
-            <p class="subtitle" style="margin: 0;">Activa/Desactiva tiendas y ajusta la frecuencia de escaneo</p>
+            <h3 style="font-size: 1.1rem;"><i class="fa-solid fa-gears icon-cyan"></i> Control de Rastreo Inmobiliario</h3>
+            <p class="subtitle" style="margin: 0;">Activa/Desactiva portales y ajusta la frecuencia de escaneo</p>
           </div>
           <button class="modal-close" id="btnCloseScraperConfig">&times;</button>
         </div>
         <div class="modal-body" style="max-height: 60vh; overflow-y: auto; margin-top: 15px;">
-          <table style="width: 100%; border-collapse: collapse; text-align: left;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
             <thead>
-              <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                <th style="padding: 10px;">Tienda</th>
-                <th style="padding: 10px;">Estado</th>
+              <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted);">
+                <th style="padding: 10px;">Portal / Fuente</th>
+                <th style="padding: 10px; text-align: center;">Estado</th>
                 <th style="padding: 10px;">Frecuencia</th>
               </tr>
             </thead>
@@ -563,6 +563,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=5.0"></script>
+    <script src="app.js?v=6.0"></script>
   </body>
 </html>
