@@ -732,7 +732,7 @@ function formatearTiempoRelativo(isoString) {
     const diffHoras = Math.round(diffMin / 60);
     if (diffHoras < 24) return `Hace ${diffHoras} h`;
     const diffDias = Math.round(diffHoras / 24);
-    return `Hace ${diffDias} días`;
+    return diffDias === 1 ? 'Hace 1 día' : `Hace ${diffDias} días`;
   } catch(e) {
     return 'Reciente';
   }
@@ -832,7 +832,7 @@ function renderOffers(data) {
 
             <div style="color: var(--text-muted); margin-bottom: 8px;">
               <i class="fa-solid fa-phone" style="color: #10b981; width: 14px;"></i> Tel / WhatsApp: <strong class="mono" style="color: #10b981;">${telefonoContacto}</strong>
-              ${ofr.tieneWhatsapp ? `<span style="color: #22c55e; font-size: 0.72rem; font-weight: 700; margin-left: 4px;">[WA ✅]</span>` : ''}
+              ${ofr.tieneWhatsapp ? `<span style="color: #22c55e; font-size: 0.72rem; font-weight: 700; margin-left: 6px;">[WhatsApp]</span>` : ''}
             </div>
 
             <!-- AUDITORÍA DE FECHAS (TEMPERATURA COMERCIAL) -->
@@ -842,14 +842,14 @@ function renderOffers(data) {
             </div>
           </div>
 
-          <div class="offer-price-box" style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline;">
-            <div>
-              <span class="offer-current-price" style="color: #10b981; font-size: 1.25rem; font-weight: 700;">$ ${precioActualFmt} COP</span>
-              <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;">(${categoriaHtml})</span>
+          <div class="offer-price-box" style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; white-space: nowrap; gap: 8px;">
+            <div style="display: flex; align-items: baseline; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <span class="offer-current-price" style="color: #10b981; font-size: 1.18rem; font-weight: 700; white-space: nowrap;">$ ${precioActualFmt} COP</span>
+              <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; white-space: nowrap;">· ${escaparHtml(ofr.operacion || 'Venta')}</span>
             </div>
             ${precioM2Fmt ? `
-              <span style="font-size: 0.78rem; font-weight: 700; color: #06b6d4; background: rgba(6, 182, 212, 0.12); padding: 3px 8px; border-radius: 4px;" title="Valor por metro cuadrado">
-                <i class="fa-solid fa-calculator"></i> $ ${precioM2Fmt} / m²
+              <span style="white-space: nowrap; flex-shrink: 0; font-size: 0.8rem; font-weight: 600; font-family: monospace; color: #06b6d4; background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.25); padding: 3px 8px; border-radius: 4px;" title="Precio por metro cuadrado">
+                $ ${precioM2Fmt} / m²
               </span>
             ` : ''}
           </div>
