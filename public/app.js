@@ -854,16 +854,16 @@ function renderOffers(data) {
             ` : ''}
           </div>
 
-          <!-- MINI-CRM: PIPELINE Y ESTADO DEL PROPIETARIO -->
-          <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px;">
-            <span style="font-size: 0.74rem; font-weight: 600; color: var(--text-muted);">
-              <i class="fa-solid fa-user-tag" style="color: #f59e0b;"></i> Estado CRM:
+          <!-- GESTIÓN DE CONTACTO (CRM) -->
+          <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 8px; margin-bottom: 8px;">
+            <span style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
+              Estado Lead:
             </span>
-            <select class="input-field" style="padding: 2px 8px; font-size: 0.76rem; height: 26px; border-radius: 4px; width: auto; background: var(--bg-surface);" onchange="cambiarEstadoLead(${ofr.id}, this.value)">
-              <option value="nuevo" ${estadoActual === 'nuevo' ? 'selected' : ''}>🟡 Nuevo</option>
-              <option value="contactado" ${estadoActual === 'contactado' ? 'selected' : ''}>🔵 Contactado</option>
-              <option value="negociacion" ${estadoActual === 'negociacion' ? 'selected' : ''}>🟢 En Negociación</option>
-              <option value="descartado" ${estadoActual === 'descartado' ? 'selected' : ''}>⚪ Descartado</option>
+            <select class="input-field" style="padding: 2px 8px; font-size: 0.75rem; height: 26px; border-radius: 4px; width: auto; background: var(--bg-surface); font-weight: 500;" onchange="cambiarEstadoLead(${ofr.id}, this.value)">
+              <option value="nuevo" ${estadoActual === 'nuevo' ? 'selected' : ''}>Nuevo</option>
+              <option value="contactado" ${estadoActual === 'contactado' ? 'selected' : ''}>Contactado</option>
+              <option value="negociacion" ${estadoActual === 'negociacion' ? 'selected' : ''}>En Negociación</option>
+              <option value="descartado" ${estadoActual === 'descartado' ? 'selected' : ''}>Descartado</option>
             </select>
           </div>
         </div>
