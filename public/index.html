@@ -23,7 +23,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos Custom Glassmorphism -->
-    <link rel="stylesheet" href="style.css?v=6.0" />
+    <link rel="stylesheet" href="style.css?v=7.0" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -370,9 +370,19 @@
               </select>
             </div>
             <div class="filter-group">
+              <label><i class="fa-solid fa-clock"></i> Antigüedad del Lead:</label>
+              <select id="offerAgeFilter" class="input-field">
+                <option value="">Todas las Fechas</option>
+                <option value="24h">🔥 Últimas 24h (Leads Calientes)</option>
+                <option value="7d">📅 Últimos 7 Días</option>
+                <option value="30d_plus">🧊 +30 Días (Negociables / Desesperados)</option>
+              </select>
+            </div>
+            <div class="filter-group">
               <label><i class="fa-solid fa-arrow-down-wide-short"></i> Ordenar Por:</label>
               <select id="offerSortFilter" class="input-field">
                 <option value="reciente">Más Recientes (Nuevos Leads)</option>
+                <option value="antiguo">Más Antiguos (Primeros Registrados)</option>
                 <option value="precio_asc">Menor Precio (COP)</option>
                 <option value="precio_desc">Mayor Precio (COP)</option>
               </select>
@@ -563,6 +573,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=6.0"></script>
+    <script src="app.js?v=7.0"></script>
   </body>
 </html>

@@ -594,6 +594,7 @@ async function loadOffers(page = 1) {
   const tienda = document.getElementById("offerStoreFilter")?.value || "";
   const categoria = document.getElementById("offerCategoryFilter")?.value || "";
   const ciudad = document.getElementById("offerCityFilter")?.value || "";
+  const antiguedad = document.getElementById("offerAgeFilter")?.value || "";
   const orden = document.getElementById("offerSortFilter")?.value || "reciente";
   const soloMinimo = document.getElementById("offerMinHistoricalToggle")?.checked ? "true" : "false";
 
@@ -604,6 +605,7 @@ async function loadOffers(page = 1) {
     tienda,
     categoria,
     ciudad,
+    antiguedad,
     orden,
     soloMinimo
   });
@@ -713,6 +715,32 @@ document.getElementById("btnCloseHistoryModal")?.addEventListener("click", () =>
   document.getElementById("historyModal")?.classList.remove("open");
 });
 
+function formatearTiempoRelativo(isoString) {
+  if (!isoString) return 'Reciente';
+  try {
+    const diffMs = Date.now() - new Date(isoString).getTime();
+    if (isNaN(diffMs) || diffMs < 0) return 'Hoy';
+    const diffMin = Math.round(diffMs / (1000 * 60));
+    if (diffMin < 60) return `Hace ${diffMin} min`;
+    const diffHoras = Math.round(diffMin / 60);
+    if (diffHoras < 24) return `Hace ${diffHoras} h`;
+    const diffDias = Math.round(diffHoras / 24);
+    return `Hace ${diffDias} días`;
+  } catch(e) {
+    return 'Reciente';
+  }
+}
+
+function formatearFechaCorta(isoString) {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch(e) {
+    return '';
+  }
+}
+
 function renderOffers(data) {
   const grid = document.getElementById("offersGrid");
   const pagination = document.getElementById("offersPagination");
@@ -720,8 +748,8 @@ function renderOffers(data) {
     grid.innerHTML = `
       <div class="offers-empty" style="text-align: center; padding: 40px 20px;">
         <i class="fa-solid fa-building-user" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 15px;"></i>
-        <h3 style="font-size: 1.25rem; margin-bottom: 8px;">No hay leads registrados todavía</h3>
-        <p class="text-muted">La base de datos SQLite se ha reiniciado limpiamente (0 residuos). En cuanto el adaptador capture propietarios directos, se listarán aquí en tiempo real con sus teléfonos.</p>
+        <h3 style="font-size: 1.25rem; margin-bottom: 8px;">No hay leads registrados con los filtros seleccionados</h3>
+        <p class="text-muted">Prueba ampliando la búsqueda o seleccionando "Todas las Fechas" y "Todas las Ciudades".</p>
       </div>
     `;
     if (pagination) pagination.innerHTML = "";
@@ -729,54 +757,96 @@ function renderOffers(data) {
   }
 
   let html = "";
-  const tiendasExcluidas = ['Éxito Supermercado', 'Decathlon', 'Éxito supermercado'];
-
   for (const ofr of data.ofertas) {
-    if (tiendasExcluidas.includes(ofr.tienda)) continue;
-
     const precioActual = ofr.precioActual || ofr.precio_actual || 0;
     const precioActualFmt = Number(precioActual).toLocaleString("es-CO");
     const portalEscapado = escaparHtml(ofr.tienda || "Finca Raíz");
     const tituloHtml = escaparHtml(ofr.titulo || "");
-    const nombreContacto = escaparHtml(ofr.nombreContacto || "Propietario Particular");
+    const nombreContacto = escaparHtml(ofr.nombreContacto || "Propietario Directo");
     const telefonoContacto = escaparHtml(ofr.telefono || "En verificación");
     const ciudadBarrio = `${escaparHtml(ofr.barrio || "")}, ${escaparHtml(ofr.ciudad || "Colombia")}`.replace(/^, /, "");
     const categoriaHtml = escaparHtml(ofr.categoria || "Inmueble");
 
+    // Formateo de fechas de valor comercial
+    const fPubRelativa = formatearTiempoRelativo(ofr.fechaPublicacion);
+    const fPubCorta = formatearFechaCorta(ofr.fechaPublicacion);
+    const fCapturaRelativa = formatearTiempoRelativo(ofr.fechaCaptura);
+
+    // Dimensiones técnicas
+    const dimPartes = [];
+    if (ofr.m2) dimPartes.push(`<strong>${ofr.m2} m²</strong>`);
+    if (ofr.habitaciones) dimPartes.push(`<strong>${ofr.habitaciones}</strong> hab`);
+    if (ofr.banos) dimPartes.push(`<strong>${ofr.banos}</strong> baños`);
+    if (ofr.garajes) dimPartes.push(`<strong>${ofr.garajes}</strong> garaje`);
+    const dimensionesHtml = dimPartes.length > 0 ? dimPartes.join(' · ') : 'Área por confirmar';
+
+    // Estrato y piso
+    const estratoHtml = ofr.estrato ? `Estrato ${ofr.estrato}` : '';
+    const pisoHtml = ofr.piso ? `Piso ${ofr.piso}` : '';
+    const extraHtml = [estratoHtml, pisoHtml].filter(Boolean).join(' · ');
+
+    // Enlace de WhatsApp directo si es celular colombiano
+    const soloNumeros = String(ofr.telefono || '').replace(/\D/g, '');
+    const esCelularValido = soloNumeros.length >= 10 && (soloNumeros.startsWith('573') || soloNumeros.startsWith('3'));
+    const waNum = soloNumeros.startsWith('57') ? soloNumeros : `57${soloNumeros}`;
+    const waUrl = esCelularValido ? `https://wa.me/${waNum}?text=Hola%20${encodeURIComponent(nombreContacto)},%20vi%20tu%20publicaci%C3%B3n%20del%20inmueble%20en%20${encodeURIComponent(ofr.barrio || ofr.ciudad)}` : null;
+
     html += `
-      <div class="offer-card" style="border: 1px solid rgba(16, 185, 129, 0.3); box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <div class="offer-card" style="border: 1px solid rgba(16, 185, 129, 0.35); box-shadow: 0 4px 14px rgba(0,0,0,0.12); display: flex; flex-direction: column; justify-content: space-between;">
         <div>
           <div class="offer-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <span class="offer-store-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">
+            <span class="offer-store-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700; font-size: 0.78rem;">
               <i class="fa-solid fa-user-check"></i> PROPIETARIO DIRECTO
             </span>
             <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
               ${portalEscapado}
             </span>
           </div>
-          <h4 class="offer-title" title="${tituloHtml}" style="font-size: 0.95rem; font-weight: 600; margin-bottom: 8px;">${tituloHtml}</h4>
+
+          <h4 class="offer-title" title="${tituloHtml}" style="font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; line-height: 1.35;">${tituloHtml}</h4>
           
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem;">
-            <div style="color: var(--text-muted); margin-bottom: 4px;">
-              <i class="fa-solid fa-location-dot" style="color: #ef4444; width: 16px;"></i> <strong>${ciudadBarrio}</strong>
+          <!-- FICHA TÉCNICA EJECUTIVA -->
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; font-size: 0.83rem;">
+            <div style="color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+              <span><i class="fa-solid fa-location-dot" style="color: #ef4444; width: 14px;"></i> <strong style="color: var(--text-color);">${ciudadBarrio}</strong></span>
+              ${extraHtml ? `<span style="font-size: 0.75rem; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${extraHtml}</span>` : ''}
             </div>
-            <div style="color: var(--text-muted); margin-bottom: 4px;">
-              <i class="fa-solid fa-user" style="color: #3b82f6; width: 16px;"></i> Dueño: <strong style="color: var(--text-color);">${nombreContacto}</strong>
+
+            <div style="color: var(--text-muted); margin-bottom: 6px;">
+              <i class="fa-solid fa-ruler-combined" style="color: #06b6d4; width: 14px;"></i> ${dimensionesHtml}
             </div>
-            <div style="color: var(--text-muted);">
-              <i class="fa-solid fa-phone" style="color: #10b981; width: 16px;"></i> Tel / WhatsApp: <strong class="mono" style="color: #10b981;">${telefonoContacto}</strong>
+
+            <div style="color: var(--text-muted); margin-bottom: 6px;">
+              <i class="fa-solid fa-user" style="color: #3b82f6; width: 14px;"></i> Dueño: <strong style="color: var(--text-color);">${nombreContacto}</strong>
+            </div>
+
+            <div style="color: var(--text-muted); margin-bottom: 8px;">
+              <i class="fa-solid fa-phone" style="color: #10b981; width: 14px;"></i> Tel / WhatsApp: <strong class="mono" style="color: #10b981;">${telefonoContacto}</strong>
+              ${ofr.tieneWhatsapp ? `<span style="color: #22c55e; font-size: 0.72rem; font-weight: 700; margin-left: 4px;">[WA ✅]</span>` : ''}
+            </div>
+
+            <!-- AUDITORÍA DE FECHAS (TEMPERATURA COMERCIAL) -->
+            <div style="border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px; margin-top: 6px; display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted);">
+              <span><i class="fa-solid fa-calendar-day" style="color: #f59e0b;"></i> Publicado: <strong style="color: #f59e0b;">${fPubRelativa}</strong> ${fPubCorta ? `(${fPubCorta})` : ''}</span>
+              <span><i class="fa-solid fa-bolt" style="color: #38bdf8;"></i> Captado: <strong>${fCapturaRelativa}</strong></span>
             </div>
           </div>
 
-          <div class="offer-price-box">
-            <span class="offer-current-price" style="color: #10b981; font-size: 1.25rem;">$ ${precioActualFmt} COP</span>
+          <div class="offer-price-box" style="margin-bottom: 10px;">
+            <span class="offer-current-price" style="color: #10b981; font-size: 1.25rem; font-weight: 700;">$ ${precioActualFmt} COP</span>
             <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;">(${categoriaHtml})</span>
           </div>
         </div>
-        <div class="offer-card-actions" style="margin-top: 12px;">
-          <a href="${ofr.enlace}" target="_blank" rel="noopener noreferrer" class="offer-btn-buy" style="background: var(--primary-color); text-align: center; justify-content: center;">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Anuncio Original
+
+        <div class="offer-card-actions" style="display: flex; gap: 8px; margin-top: 8px;">
+          <a href="${ofr.enlace}" target="_blank" rel="noopener noreferrer" class="offer-btn-buy" style="background: var(--primary-color); flex: 1; text-align: center; justify-content: center; font-size: 0.8rem; padding: 8px 10px;">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Anuncio
           </a>
+          ${waUrl ? `
+            <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-sm" style="background: #22c55e; color: #fff; text-decoration: none; display: flex; align-items: center; justify-content: center; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 0.8rem;" title="Abrir WhatsApp">
+              <i class="fa-brands fa-whatsapp"></i>
+            </a>
+          ` : ''}
         </div>
       </div>
     `;
@@ -817,6 +887,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const cityFilter = document.getElementById("offerCityFilter");
   if (cityFilter) cityFilter.addEventListener("change", () => loadOffers(1));
+
+  const ageFilter = document.getElementById("offerAgeFilter");
+  if (ageFilter) ageFilter.addEventListener("change", () => loadOffers(1));
 
   const sortFilter = document.getElementById("offerSortFilter");
   if (sortFilter) sortFilter.addEventListener("change", () => loadOffers(1));

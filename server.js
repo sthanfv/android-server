@@ -1577,10 +1577,26 @@ app.get("/api/offers", (req, res) => {
       params.push(`%${busqueda}%`, `%${busqueda}%`, `%${busqueda}%`);
     }
 
+    const { antiguedad } = req.query;
+    if (antiguedad === '24h') {
+      const limite24h = Date.now() - (24 * 60 * 60 * 1000);
+      whereClauses.push('timestamp_ms >= ?');
+      params.push(limite24h);
+    } else if (antiguedad === '7d') {
+      const limite7d = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      whereClauses.push('timestamp_ms >= ?');
+      params.push(limite7d);
+    } else if (antiguedad === '30d_plus') {
+      const limite30d = Date.now() - (30 * 24 * 60 * 60 * 1000);
+      whereClauses.push('timestamp_ms <= ?');
+      params.push(limite30d);
+    }
+
     const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
 
     let orderBySql = 'ORDER BY timestamp_ms DESC';
-    if (orden === 'precio_asc') orderBySql = 'ORDER BY precio ASC';
+    if (orden === 'antiguo') orderBySql = 'ORDER BY timestamp_ms ASC';
+    else if (orden === 'precio_asc') orderBySql = 'ORDER BY precio ASC';
     else if (orden === 'precio_desc') orderBySql = 'ORDER BY precio DESC';
 
     const countSql = `SELECT COUNT(*) as total FROM leads ${whereSql}`;
@@ -1592,23 +1608,44 @@ app.get("/api/offers", (req, res) => {
     const rows = dbInst.prepare(dataSql).all(...params, Number(limite), offset);
 
     // Mapear para renderizado en frontend
-    const ofertas = rows.map(r => ({
-      id: r.id,
-      titulo: r.titulo,
-      tienda: (r.portal || 'Finca Raíz').toUpperCase(),
-      categoria: `${r.tipo_inmueble.toUpperCase()} (${r.operacion.toUpperCase()})`,
-      emoji: r.tipo_inmueble === 'casa' ? '🏡' : '🏢',
-      precioActual: r.precio,
-      precioOriginal: r.precio,
-      descuento_pct: 0,
-      ciudad: r.ciudad ? (r.ciudad.charAt(0).toUpperCase() + r.ciudad.slice(1)) : 'Colombia',
-      barrio: r.barrio || 'Zona Norte',
-      telefono: r.telefono || 'Sin teléfono público',
-      nombreContacto: r.nombre_contacto || 'Particular',
-      enlace: r.enlace,
-      actualizado_el: r.fecha_captura,
-      es_minimo_historico: 1
-    }));
+    const ofertas = rows.map(r => {
+      let meta = {};
+      try {
+        meta = typeof r.metadata_json === 'string' ? JSON.parse(r.metadata_json) : (r.metadata_json || {});
+      } catch(e) {
+        meta = {};
+      }
+
+      return {
+        id: r.id,
+        titulo: r.titulo,
+        tienda: (r.portal || 'Finca Raíz').toUpperCase(),
+        categoria: `${(r.tipo_inmueble || 'inmueble').toUpperCase()} (${(r.operacion || 'venta').toUpperCase()})`,
+        tipoInmueble: r.tipo_inmueble || 'apartamento',
+        operacion: r.operacion || 'venta',
+        emoji: r.tipo_inmueble === 'casa' ? '🏡' : '🏢',
+        precioActual: r.precio,
+        precioOriginal: r.precio,
+        descuento_pct: 0,
+        ciudad: r.ciudad ? (r.ciudad.charAt(0).toUpperCase() + r.ciudad.slice(1)) : 'Colombia',
+        barrio: r.barrio || 'Sector no especificado',
+        telefono: r.telefono || 'Sin teléfono público',
+        nombreContacto: r.nombre_contacto || 'Propietario Directo',
+        enlace: r.enlace,
+        fechaCaptura: r.fecha_captura,
+        fechaPublicacion: meta.fechaPublicacion || r.fecha_captura,
+        m2: meta.m2 || 0,
+        habitaciones: meta.habitaciones || 0,
+        banos: meta.banos || 0,
+        garajes: meta.garajes || 0,
+        estrato: meta.estrato || null,
+        piso: meta.piso || null,
+        tieneWhatsapp: Boolean(meta.tieneWhatsapp),
+        coordenadas: meta.coordenadas || null,
+        actualizado_el: r.fecha_captura,
+        es_minimo_historico: 1
+      };
+    });
 
     res.json({
       ofertas,
@@ -1636,7 +1673,6 @@ app.get("/api/offers/stats", (req, res) => {
 
     const totalLeads = dbInst.prepare('SELECT COUNT(*) as count FROM leads').get().count;
     const totalTelefonos = dbInst.prepare("SELECT COUNT(*) as count FROM leads WHERE telefono != ''").get().count;
-    const totalPortales = dbInst.prepare('SELECT COUNT(DISTINCT portal) as count FROM leads').get().count;
 
     res.json({
       totalProductos: totalLeads,
@@ -1650,18 +1686,34 @@ app.get("/api/offers/stats", (req, res) => {
   }
 });
 
-// Endpoint para descarga directa de Leads en Excel / CSV
+// Endpoint profesional para descarga directa de Leads en Excel / CSV
 app.get("/api/leads/export-csv", (req, res) => {
   const dbInst = getHunterDb();
   if (!dbInst) return res.status(500).send("Base de datos no disponible");
 
   try {
     const leads = dbInst.prepare("SELECT * FROM leads ORDER BY timestamp_ms DESC").all();
-    let csv = "ID,Fecha,Portal,Tipo,Operacion,Titulo,Precio_COP,Ciudad,Barrio,Contacto,Telefono,Enlace\n";
+    let csv = "ID,Fecha_Publicacion,Fecha_Captura,Portal,Tipo_Inmueble,Operacion,Titulo,Precio_COP,Ciudad,Barrio,Estrato,M2,Habitaciones,Banos,Garajes,Piso,Nombre_Propietario,Telefono,Tiene_WhatsApp,Enlace\n";
+    
     for (const l of leads) {
+      let meta = {};
+      try {
+        meta = typeof l.metadata_json === 'string' ? JSON.parse(l.metadata_json) : (l.metadata_json || {});
+      } catch(e) {}
+
       const tit = (l.titulo || '').replace(/"/g, '""');
-      csv += `"${l.id}","${l.fecha_captura}","${l.portal}","${l.tipo_inmueble}","${l.operacion}","${tit}","${l.precio}","${l.ciudad}","${l.barrio}","${l.nombre_contacto}","${l.telefono}","${l.enlace}"\n`;
+      const fPub = meta.fechaPublicacion || l.fecha_captura;
+      const tieneWa = meta.tieneWhatsapp ? 'SI' : 'NO';
+      const m2 = meta.m2 || 0;
+      const hab = meta.habitaciones || 0;
+      const ban = meta.banos || 0;
+      const gar = meta.garajes || 0;
+      const estrato = meta.estrato || 'N/A';
+      const piso = meta.piso || 'N/A';
+
+      csv += `"${l.id}","${fPub}","${l.fecha_captura}","${l.portal}","${l.tipo_inmueble}","${l.operacion}","${tit}","${l.precio}","${l.ciudad}","${l.barrio}","${estrato}","${m2}","${hab}","${ban}","${gar}","${piso}","${l.nombre_contacto}","${l.telefono}","${tieneWa}","${l.enlace}"\n`;
     }
+
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="leads_inmobiliarios_colombia.csv"');
     res.send("\uFEFF" + csv);
