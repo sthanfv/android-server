@@ -23,7 +23,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- Estilos Custom Glassmorphism -->
-    <link rel="stylesheet" href="style.css?v=7.0" />
+    <link rel="stylesheet" href="style.css?v=8.0" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -363,10 +363,33 @@
               <select id="offerCityFilter" class="input-field">
                 <option value="">Todas las Ciudades</option>
                 <option value="bogota">Bogotá D.C.</option>
+                <option value="chia">Chía / Cajicá</option>
                 <option value="medellin">Medellín</option>
+                <option value="envigado">Envigado / Sabaneta</option>
+                <option value="rionegro">Rionegro / Oriente</option>
                 <option value="cali">Cali</option>
                 <option value="barranquilla">Barranquilla</option>
                 <option value="bucaramanga">Bucaramanga</option>
+                <option value="pereira">Pereira (Eje Cafetero)</option>
+                <option value="manizales">Manizales</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label><i class="fa-solid fa-dollar-sign"></i> Precio Mín (COP):</label>
+              <input type="number" id="offerPriceMin" class="input-field" placeholder="Ej: 150000000" step="10000000" />
+            </div>
+            <div class="filter-group">
+              <label><i class="fa-solid fa-dollar-sign"></i> Precio Máx (COP):</label>
+              <input type="number" id="offerPriceMax" class="input-field" placeholder="Ej: 500000000" step="10000000" />
+            </div>
+            <div class="filter-group">
+              <label><i class="fa-solid fa-tags"></i> Estado Lead (CRM):</label>
+              <select id="offerLeadStatusFilter" class="input-field">
+                <option value="">Todos los Estados</option>
+                <option value="nuevo">🟡 Nuevo</option>
+                <option value="contactado">🔵 Contactado</option>
+                <option value="negociacion">🟢 En Negociación</option>
+                <option value="descartado">⚪ Descartado</option>
               </select>
             </div>
             <div class="filter-group">
@@ -573,6 +596,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=7.0"></script>
+    <script src="app.js?v=8.0"></script>
   </body>
 </html>

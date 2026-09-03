@@ -594,6 +594,9 @@ async function loadOffers(page = 1) {
   const tienda = document.getElementById("offerStoreFilter")?.value || "";
   const categoria = document.getElementById("offerCategoryFilter")?.value || "";
   const ciudad = document.getElementById("offerCityFilter")?.value || "";
+  const precioMin = document.getElementById("offerPriceMin")?.value || "";
+  const precioMax = document.getElementById("offerPriceMax")?.value || "";
+  const estadoLead = document.getElementById("offerLeadStatusFilter")?.value || "";
   const antiguedad = document.getElementById("offerAgeFilter")?.value || "";
   const orden = document.getElementById("offerSortFilter")?.value || "reciente";
   const soloMinimo = document.getElementById("offerMinHistoricalToggle")?.checked ? "true" : "false";
@@ -609,6 +612,10 @@ async function loadOffers(page = 1) {
     orden,
     soloMinimo
   });
+
+  if (precioMin) params.append("precioMin", precioMin);
+  if (precioMax) params.append("precioMax", precioMax);
+  if (estadoLead) params.append("estadoLead", estadoLead);
 
   try {
     const res = await fetch(`/api/offers?${params.toString()}`);
@@ -791,6 +798,9 @@ function renderOffers(data) {
     const waNum = soloNumeros.startsWith('57') ? soloNumeros : `57${soloNumeros}`;
     const waUrl = esCelularValido ? `https://wa.me/${waNum}?text=Hola%20${encodeURIComponent(nombreContacto)},%20vi%20tu%20publicaci%C3%B3n%20del%20inmueble%20en%20${encodeURIComponent(ofr.barrio || ofr.ciudad)}` : null;
 
+    const precioM2Fmt = ofr.precioM2 ? Number(ofr.precioM2).toLocaleString("es-CO") : null;
+    const estadoActual = ofr.estadoLead || 'nuevo';
+
     html += `
       <div class="offer-card" style="border: 1px solid rgba(16, 185, 129, 0.35); box-shadow: 0 4px 14px rgba(0,0,0,0.12); display: flex; flex-direction: column; justify-content: space-between;">
         <div>
@@ -832,13 +842,33 @@ function renderOffers(data) {
             </div>
           </div>
 
-          <div class="offer-price-box" style="margin-bottom: 10px;">
-            <span class="offer-current-price" style="color: #10b981; font-size: 1.25rem; font-weight: 700;">$ ${precioActualFmt} COP</span>
-            <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;">(${categoriaHtml})</span>
+          <div class="offer-price-box" style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: baseline;">
+            <div>
+              <span class="offer-current-price" style="color: #10b981; font-size: 1.25rem; font-weight: 700;">$ ${precioActualFmt} COP</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;">(${categoriaHtml})</span>
+            </div>
+            ${precioM2Fmt ? `
+              <span style="font-size: 0.78rem; font-weight: 700; color: #06b6d4; background: rgba(6, 182, 212, 0.12); padding: 3px 8px; border-radius: 4px;" title="Valor por metro cuadrado">
+                <i class="fa-solid fa-calculator"></i> $ ${precioM2Fmt} / m²
+              </span>
+            ` : ''}
+          </div>
+
+          <!-- MINI-CRM: PIPELINE Y ESTADO DEL PROPIETARIO -->
+          <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px;">
+            <span style="font-size: 0.74rem; font-weight: 600; color: var(--text-muted);">
+              <i class="fa-solid fa-user-tag" style="color: #f59e0b;"></i> Estado CRM:
+            </span>
+            <select class="input-field" style="padding: 2px 8px; font-size: 0.76rem; height: 26px; border-radius: 4px; width: auto; background: var(--bg-surface);" onchange="cambiarEstadoLead(${ofr.id}, this.value)">
+              <option value="nuevo" ${estadoActual === 'nuevo' ? 'selected' : ''}>🟡 Nuevo</option>
+              <option value="contactado" ${estadoActual === 'contactado' ? 'selected' : ''}>🔵 Contactado</option>
+              <option value="negociacion" ${estadoActual === 'negociacion' ? 'selected' : ''}>🟢 En Negociación</option>
+              <option value="descartado" ${estadoActual === 'descartado' ? 'selected' : ''}>⚪ Descartado</option>
+            </select>
           </div>
         </div>
 
-        <div class="offer-card-actions" style="display: flex; gap: 8px; margin-top: 8px;">
+        <div class="offer-card-actions" style="display: flex; gap: 8px; margin-top: 6px;">
           <a href="${ofr.enlace}" target="_blank" rel="noopener noreferrer" class="offer-btn-buy" style="background: var(--primary-color); flex: 1; text-align: center; justify-content: center; font-size: 0.8rem; padding: 8px 10px;">
             <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Anuncio
           </a>
@@ -869,6 +899,28 @@ function renderOffers(data) {
   }
 }
 
+/**
+ * Actualiza el estado de un lead en SQLite desde la tarjeta Mini-CRM.
+ * @param {number} id - ID del lead
+ * @param {string} nuevoEstado - 'nuevo' | 'contactado' | 'negociacion' | 'descartado'
+ */
+window.cambiarEstadoLead = async function(id, nuevoEstado) {
+  try {
+    const res = await fetch(`/api/offers/${id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estado: nuevoEstado })
+    });
+    if (res.ok) {
+      console.log(`[Mini-CRM] Lead #${id} actualizado a '${nuevoEstado}' exitosamente.`);
+    } else {
+      console.warn(`[Mini-CRM] Error actualizando lead #${id}`);
+    }
+  } catch (e) {
+    console.warn(`[Mini-CRM] Excepción de red al actualizar lead #${id}:`, e.message);
+  }
+};
+
 // Listeners de búsqueda y filtros
 document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("offerSearchInput");
@@ -893,6 +945,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const sortFilter = document.getElementById("offerSortFilter");
   if (sortFilter) sortFilter.addEventListener("change", () => loadOffers(1));
+
+  const priceMin = document.getElementById("offerPriceMin");
+  if (priceMin) priceMin.addEventListener("change", () => loadOffers(1));
+
+  const priceMax = document.getElementById("offerPriceMax");
+  if (priceMax) priceMax.addEventListener("change", () => loadOffers(1));
+
+  const statusFilter = document.getElementById("offerLeadStatusFilter");
+  if (statusFilter) statusFilter.addEventListener("change", () => loadOffers(1));
 
   const minToggle = document.getElementById("offerMinHistoricalToggle");
   if (minToggle) minToggle.addEventListener("change", () => loadOffers(1));

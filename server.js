@@ -95,10 +95,45 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// 5. Módulo de Autenticación Básica (Protección de Endpoints y Panel)
+// 5. Módulo de Autenticación Básica con Blindaje Anti-Fuerza Bruta
+const failedAuthAttempts = new Map(); // ip -> { count, lockedUntil }
+
+function esIntentoBloqueado(ip) {
+  const reg = failedAuthAttempts.get(ip);
+  if (!reg) return false;
+  if (reg.lockedUntil && Date.now() < reg.lockedUntil) return true;
+  if (reg.lockedUntil && Date.now() >= reg.lockedUntil) {
+    failedAuthAttempts.delete(ip);
+    return false;
+  }
+  return false;
+}
+
+function registrarFalloAuth(ip) {
+  const ahora = Date.now();
+  const reg = failedAuthAttempts.get(ip) || { count: 0, firstAttempt: ahora, lockedUntil: 0 };
+  reg.count += 1;
+  if (reg.count >= 5) {
+    reg.lockedUntil = ahora + 15 * 60 * 1000; // Bloqueo de 15 minutos tras 5 fallos
+  }
+  failedAuthAttempts.set(ip, reg);
+}
+
+function registrarExitoAuth(ip) {
+  failedAuthAttempts.delete(ip);
+}
+
 app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return next(); // Permitir preflight CORS
   
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'desconocida';
+
+  if (esIntentoBloqueado(clientIp)) {
+    return res.status(429).json({
+      error: 'Demasiados intentos fallidos de autenticación. IP bloqueada por 15 minutos por seguridad.'
+    });
+  }
+
   const b64auth = (req.headers.authorization || '').split(' ')[1] || '';
   const [login, password] = Buffer.from(b64auth, 'base64').toString().split(':');
 
@@ -117,13 +152,13 @@ app.use((req, res, next) => {
         const userOk = (login === validUser);
         const passOk = (password === validPass);
         if (userOk && passOk) {
+          registrarExitoAuth(clientIp);
           return next();
         }
     } catch(e) {}
   }
   
-  // CORRECCIÓN BUG #1/#3: Enviar WWW-Authenticate en TODAS las rutas 401
-  // para que Chrome propague la cabecera Authorization a todo el dominio
+  registrarFalloAuth(clientIp);
   res.set('WWW-Authenticate', 'Basic realm="Android Mini Server Secure Area"');
   res.status(401).send('Acceso Denegado. Autenticación requerida por el administrador.');
 });
@@ -1577,7 +1612,7 @@ app.get("/api/offers", (req, res) => {
       params.push(`%${busqueda}%`, `%${busqueda}%`, `%${busqueda}%`);
     }
 
-    const { antiguedad } = req.query;
+    const { antiguedad, precioMin, precioMax, estadoLead } = req.query;
     if (antiguedad === '24h') {
       const limite24h = Date.now() - (24 * 60 * 60 * 1000);
       whereClauses.push('timestamp_ms >= ?');
@@ -1590,6 +1625,19 @@ app.get("/api/offers", (req, res) => {
       const limite30d = Date.now() - (30 * 24 * 60 * 60 * 1000);
       whereClauses.push('timestamp_ms <= ?');
       params.push(limite30d);
+    }
+
+    if (precioMin && !isNaN(precioMin)) {
+      whereClauses.push('precio >= ?');
+      params.push(Number(precioMin));
+    }
+    if (precioMax && !isNaN(precioMax)) {
+      whereClauses.push('precio <= ?');
+      params.push(Number(precioMax));
+    }
+    if (estadoLead) {
+      whereClauses.push('estado_lead = ?');
+      params.push(estadoLead.toLowerCase());
     }
 
     const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
@@ -1616,6 +1664,9 @@ app.get("/api/offers", (req, res) => {
         meta = {};
       }
 
+      const m2Val = meta.m2 || 0;
+      const precioM2 = (m2Val > 0 && r.precio > 0) ? Math.round(r.precio / m2Val) : null;
+
       return {
         id: r.id,
         titulo: r.titulo,
@@ -1623,9 +1674,10 @@ app.get("/api/offers", (req, res) => {
         categoria: `${(r.tipo_inmueble || 'inmueble').toUpperCase()} (${(r.operacion || 'venta').toUpperCase()})`,
         tipoInmueble: r.tipo_inmueble || 'apartamento',
         operacion: r.operacion || 'venta',
-        emoji: r.tipo_inmueble === 'casa' ? '🏡' : '🏢',
+        emoji: r.tipo_inmueble === 'casa' ? '🏡' : (r.tipo_inmueble === 'lotes' ? '🏞️' : '🏢'),
         precioActual: r.precio,
         precioOriginal: r.precio,
+        precioM2: precioM2,
         descuento_pct: 0,
         ciudad: r.ciudad ? (r.ciudad.charAt(0).toUpperCase() + r.ciudad.slice(1)) : 'Colombia',
         barrio: r.barrio || 'Sector no especificado',
@@ -1634,7 +1686,7 @@ app.get("/api/offers", (req, res) => {
         enlace: r.enlace,
         fechaCaptura: r.fecha_captura,
         fechaPublicacion: meta.fechaPublicacion || r.fecha_captura,
-        m2: meta.m2 || 0,
+        m2: m2Val,
         habitaciones: meta.habitaciones || 0,
         banos: meta.banos || 0,
         garajes: meta.garajes || 0,
@@ -1642,6 +1694,8 @@ app.get("/api/offers", (req, res) => {
         piso: meta.piso || null,
         tieneWhatsapp: Boolean(meta.tieneWhatsapp),
         coordenadas: meta.coordenadas || null,
+        estadoLead: r.estado_lead || 'nuevo',
+        notas: r.notas || '',
         actualizado_el: r.fecha_captura,
         es_minimo_historico: 1
       };
@@ -1657,6 +1711,74 @@ app.get("/api/offers", (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// Endpoint Mini-CRM: Actualizar estado y notas del lead
+app.patch("/api/offers/:id/status", (req, res) => {
+  const dbInst = getHunterDb();
+  if (!dbInst) return res.status(500).json({ error: "Base de datos no disponible" });
+
+  const { id } = req.params;
+  const { estado, notas } = req.body || {};
+
+  const valido = ['nuevo', 'contactado', 'negociacion', 'descartado'].includes(estado) ? estado : 'nuevo';
+
+  try {
+    if (notas !== undefined) {
+      dbInst.prepare("UPDATE leads SET estado_lead = ?, notas = ? WHERE id = ?").run(valido, notas, id);
+    } else {
+      dbInst.prepare("UPDATE leads SET estado_lead = ? WHERE id = ?").run(valido, id);
+    }
+    res.json({ success: true, id, estado: valido });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Endpoint Perro Guardián: Telemetría de hardware (batería, cargador, temperatura)
+app.get("/api/telemetry/hardware", (req, res) => {
+  const { exec } = require('child_process');
+  exec('dumpsys battery', { timeout: 2500 }, (err, stdout) => {
+    if (err || !stdout) {
+      return res.json({
+        nivelBateria: 100,
+        cargando: true,
+        fuentePoder: 'USB',
+        temperaturaC: 35.0,
+        voltajeMv: 4200,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    try {
+      const nivelMatch = stdout.match(/level:\s*(\d+)/i);
+      const tempMatch = stdout.match(/temperature:\s*(\d+)/i);
+      const voltMatch = stdout.match(/voltage:\s*(\d+)/i);
+      const acMatch = stdout.match(/AC powered:\s*(true|false)/i);
+      const usbMatch = stdout.match(/USB powered:\s*(true|false)/i);
+
+      const nivel = nivelMatch ? parseInt(nivelMatch[1], 10) : 100;
+      const tempCruda = tempMatch ? parseInt(tempMatch[1], 10) : 350;
+      const tempC = Number((tempCruda / 10).toFixed(1));
+      const voltaje = voltMatch ? parseInt(voltMatch[1], 10) : 4200;
+
+      const ac = acMatch ? acMatch[1].toLowerCase() === 'true' : false;
+      const usb = usbMatch ? usbMatch[1].toLowerCase() === 'true' : false;
+      const cargando = ac || usb;
+      const fuente = ac ? 'AC' : (usb ? 'USB' : 'Batería');
+
+      res.json({
+        nivelBateria: nivel,
+        cargando,
+        fuentePoder: fuente,
+        temperaturaC: tempC,
+        voltajeMv: voltaje,
+        timestamp: new Date().toISOString()
+      });
+    } catch(e) {
+      res.json({ nivelBateria: 100, cargando: true, fuentePoder: 'USB', temperaturaC: 35.0, error: e.message });
+    }
+  });
 });
 
 app.get("/api/offers/stats", (req, res) => {
@@ -1693,7 +1815,7 @@ app.get("/api/leads/export-csv", (req, res) => {
 
   try {
     const leads = dbInst.prepare("SELECT * FROM leads ORDER BY timestamp_ms DESC").all();
-    let csv = "ID,Fecha_Publicacion,Fecha_Captura,Portal,Tipo_Inmueble,Operacion,Titulo,Precio_COP,Ciudad,Barrio,Estrato,M2,Habitaciones,Banos,Garajes,Piso,Nombre_Propietario,Telefono,Tiene_WhatsApp,Enlace\n";
+    let csv = "ID,Fecha_Publicacion,Fecha_Captura,Portal,Tipo_Inmueble,Operacion,Titulo,Precio_COP,Precio_M2,Ciudad,Barrio,Estrato,M2,Habitaciones,Banos,Garajes,Piso,Nombre_Propietario,Telefono,Tiene_WhatsApp,Estado_Lead,Enlace\n";
     
     for (const l of leads) {
       let meta = {};
@@ -1710,8 +1832,10 @@ app.get("/api/leads/export-csv", (req, res) => {
       const gar = meta.garajes || 0;
       const estrato = meta.estrato || 'N/A';
       const piso = meta.piso || 'N/A';
+      const precioM2 = (m2 > 0 && l.precio > 0) ? Math.round(l.precio / m2) : 'N/A';
+      const estado = l.estado_lead || 'nuevo';
 
-      csv += `"${l.id}","${fPub}","${l.fecha_captura}","${l.portal}","${l.tipo_inmueble}","${l.operacion}","${tit}","${l.precio}","${l.ciudad}","${l.barrio}","${estrato}","${m2}","${hab}","${ban}","${gar}","${piso}","${l.nombre_contacto}","${l.telefono}","${tieneWa}","${l.enlace}"\n`;
+      csv += `"${l.id}","${fPub}","${l.fecha_captura}","${l.portal}","${l.tipo_inmueble}","${l.operacion}","${tit}","${l.precio}","${precioM2}","${l.ciudad}","${l.barrio}","${estrato}","${m2}","${hab}","${ban}","${gar}","${piso}","${l.nombre_contacto}","${l.telefono}","${tieneWa}","${estado}","${l.enlace}"\n`;
     }
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
