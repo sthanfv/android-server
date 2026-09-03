@@ -1807,9 +1807,18 @@ const handleSystemShutdown = async (signal) => {
 process.on("SIGTERM", () => handleSystemShutdown("SIGTERM"));
 process.on("SIGINT", () => handleSystemShutdown("SIGINT"));
 
-// Iniciar Servidores Duales (HTTP y HTTPS)
+// Iniciar Servidores Duales (HTTP y HTTPS) de forma blindada
 async function startServers() {
   const httpServer = http.createServer(app);
+  
+  httpServer.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.warn(`⚠️ [HTTP Server] Puerto ${HTTP_PORT} en conflicto (EADDRINUSE). Esperando liberación...`);
+    } else {
+      console.error("❌ Error en servidor HTTP:", err.message);
+    }
+  });
+
   httpServer.listen(HTTP_PORT, "0.0.0.0", () => {
     console.log(`========================================================`);
     console.log(`🚀 Galaxy M10 Server Core Activo (HTTP Puerto ${HTTP_PORT})`);
@@ -1820,6 +1829,14 @@ async function startServers() {
   if (sslCredentials) {
     try {
       const httpsServer = https.createServer(sslCredentials, app);
+      httpsServer.on("error", (err) => {
+        if (err.code === "EADDRINUSE") {
+          console.warn(`⚠️ [HTTPS Server] Puerto ${HTTPS_PORT} ocupado. Operando en modo HTTP primario.`);
+        } else {
+          console.warn("⚠️ Advertencia en servidor HTTPS:", err.message);
+        }
+      });
+
       httpsServer.listen(HTTPS_PORT, "0.0.0.0", () => {
         console.log(`🔒 HTTPS Seguro: https://localhost:${HTTPS_PORT}`);
         console.log(`🛡️ Watchdog, Scale-to-Zero & Cifrado TLS: Activos`);
