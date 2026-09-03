@@ -597,6 +597,8 @@ async function loadOffers(page = 1) {
   const precioMin = document.getElementById("offerPriceMin")?.value || "";
   const precioMax = document.getElementById("offerPriceMax")?.value || "";
   const estadoLead = document.getElementById("offerLeadStatusFilter")?.value || "";
+  const portal = document.getElementById("offerPortalFilter")?.value || "";
+  const soloRebajas = document.getElementById("offerPriceDropFilter")?.value || "";
   const antiguedad = document.getElementById("offerAgeFilter")?.value || "";
   const orden = document.getElementById("offerSortFilter")?.value || "reciente";
   const soloMinimo = document.getElementById("offerMinHistoricalToggle")?.checked ? "true" : "false";
@@ -616,6 +618,8 @@ async function loadOffers(page = 1) {
   if (precioMin) params.append("precioMin", precioMin);
   if (precioMax) params.append("precioMax", precioMax);
   if (estadoLead) params.append("estadoLead", estadoLead);
+  if (portal) params.append("portal", portal);
+  if (soloRebajas) params.append("soloRebajas", soloRebajas);
 
   try {
     const res = await fetch(`/api/offers?${params.toString()}`);
@@ -808,9 +812,15 @@ function renderOffers(data) {
             <span class="offer-store-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700; font-size: 0.78rem;">
               <i class="fa-solid fa-user-check"></i> PROPIETARIO DIRECTO
             </span>
-            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
-              ${portalEscapado}
-            </span>
+            ${ofr.portales && ofr.portales.length > 1 ? `
+              <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 700; background: rgba(56, 189, 248, 0.12); padding: 2px 6px; border-radius: 4px;" title="Publicado en múltiples portales">
+                MULTICANAL (${ofr.portales.map(p => p.toUpperCase()).join(' + ')})
+              </span>
+            ` : `
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
+                ${portalEscapado}
+              </span>
+            `}
           </div>
 
           <h4 class="offer-title" title="${tituloHtml}" style="font-size: 0.95rem; font-weight: 600; margin-bottom: 10px; line-height: 1.35;">${tituloHtml}</h4>
@@ -842,6 +852,21 @@ function renderOffers(data) {
             </div>
           </div>
 
+          <!-- BANNER DE REBAJA DE PRECIO DETECTADA -->
+          ${ofr.tieneRebaja && ofr.rebajaInfo ? `
+            <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 4px; padding: 4px 8px; margin-bottom: 8px; font-size: 0.74rem; color: #f87171; display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-weight: 700; font-family: monospace;">REBAJA: -$ ${Number(ofr.rebajaInfo.diferencia_cop || ofr.rebajaInfo.diferencia || 0).toLocaleString('es-CO')} (-${ofr.rebajaInfo.porcentaje_rebaja || ofr.rebajaInfo.pct || 0}%)</span>
+              <span style="color: var(--text-muted); font-size: 0.7rem;">Antes: $ ${Number(ofr.rebajaInfo.precio_anterior || ofr.rebajaInfo.precioAnterior || 0).toLocaleString('es-CO')}</span>
+            </div>
+          ` : ''}
+
+          <!-- COMPARATIVA DE PRECIOS POR PORTAL (DISCREPANCIA) -->
+          ${ofr.preciosPorPortal && Object.keys(ofr.preciosPorPortal).length > 1 ? `
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 6px; background: rgba(255,255,255,0.02); padding: 3px 6px; border-radius: 3px; font-family: monospace;">
+              ${Object.entries(ofr.preciosPorPortal).map(([p, pr]) => `${p.toUpperCase()}: $ ${Number(pr).toLocaleString('es-CO')}`).join(' · ')}
+            </div>
+          ` : ''}
+
           <div class="offer-price-box" style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; white-space: nowrap; gap: 8px;">
             <div style="display: flex; align-items: baseline; gap: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
               <span class="offer-current-price" style="color: #10b981; font-size: 1.18rem; font-weight: 700; white-space: nowrap;">$ ${precioActualFmt} COP</span>
@@ -868,10 +893,18 @@ function renderOffers(data) {
           </div>
         </div>
 
-        <div class="offer-card-actions" style="display: flex; gap: 8px; margin-top: 6px;">
-          <a href="${ofr.enlace}" target="_blank" rel="noopener noreferrer" class="offer-btn-buy" style="background: var(--primary-color); flex: 1; text-align: center; justify-content: center; font-size: 0.8rem; padding: 8px 10px;">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Anuncio
-          </a>
+        <div class="offer-card-actions" style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+          ${ofr.enlacesPorPortal && Object.keys(ofr.enlacesPorPortal).length > 1 ? (
+            Object.entries(ofr.enlacesPorPortal).map(([p, url]) => `
+              <a href="${url}" target="_blank" rel="noopener noreferrer" class="offer-btn-buy" style="background: var(--bg-surface); border: 1px solid var(--border-color); flex: 1; text-align: center; justify-content: center; font-size: 0.75rem; padding: 6px 8px;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> ${p.toUpperCase()}
+              </a>
+            `).join('')
+          ) : `
+            <a href="${ofr.enlace}" target="_blank" rel="noopener noreferrer" class="offer-btn-buy" style="background: var(--primary-color); flex: 1; text-align: center; justify-content: center; font-size: 0.8rem; padding: 8px 10px;">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Anuncio
+            </a>
+          `}
           ${waUrl ? `
             <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-sm" style="background: #22c55e; color: #fff; text-decoration: none; display: flex; align-items: center; justify-content: center; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 0.8rem;" title="Abrir WhatsApp">
               <i class="fa-brands fa-whatsapp"></i>
@@ -954,6 +987,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const statusFilter = document.getElementById("offerLeadStatusFilter");
   if (statusFilter) statusFilter.addEventListener("change", () => loadOffers(1));
+
+  const portalFilter = document.getElementById("offerPortalFilter");
+  if (portalFilter) portalFilter.addEventListener("change", () => loadOffers(1));
+
+  const priceDropFilter = document.getElementById("offerPriceDropFilter");
+  if (priceDropFilter) priceDropFilter.addEventListener("change", () => loadOffers(1));
 
   const minToggle = document.getElementById("offerMinHistoricalToggle");
   if (minToggle) minToggle.addEventListener("change", () => loadOffers(1));

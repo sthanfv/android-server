@@ -383,6 +383,21 @@
               <input type="number" id="offerPriceMax" class="input-field" placeholder="Ej: 500000000" step="10000000" />
             </div>
             <div class="filter-group">
+              <label><i class="fa-solid fa-globe"></i> Portal:</label>
+              <select id="offerPortalFilter" class="input-field">
+                <option value="">Todos los Portales</option>
+                <option value="fincaraiz">Finca Raíz</option>
+                <option value="metrocuadrado">Metrocuadrado</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label><i class="fa-solid fa-arrow-trend-down"></i> Oportunidad:</label>
+              <select id="offerPriceDropFilter" class="input-field">
+                <option value="">Todo el Inventario</option>
+                <option value="true">Rebajas Detectadas (Urgencia)</option>
+              </select>
+            </div>
+            <div class="filter-group">
               <label><i class="fa-solid fa-tags"></i> Estado Lead (CRM):</label>
               <select id="offerLeadStatusFilter" class="input-field">
                 <option value="">Todos los Estados</option>
@@ -396,9 +411,9 @@
               <label><i class="fa-solid fa-clock"></i> Antigüedad del Lead:</label>
               <select id="offerAgeFilter" class="input-field">
                 <option value="">Todas las Fechas</option>
-                <option value="24h">🔥 Últimas 24h (Leads Calientes)</option>
-                <option value="7d">📅 Últimos 7 Días</option>
-                <option value="30d_plus">🧊 +30 Días (Negociables / Desesperados)</option>
+                <option value="24h">Últimas 24h (Leads Calientes)</option>
+                <option value="7d">Últimos 7 Días</option>
+                <option value="30d_plus">+30 Días (Negociables)</option>
               </select>
             </div>
             <div class="filter-group">
@@ -596,6 +611,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=8.1"></script>
+    <script src="app.js?v=9.0"></script>
   </body>
 </html>

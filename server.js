@@ -1612,7 +1612,16 @@ app.get("/api/offers", (req, res) => {
       params.push(`%${busqueda}%`, `%${busqueda}%`, `%${busqueda}%`);
     }
 
-    const { antiguedad, precioMin, precioMax, estadoLead } = req.query;
+    const { antiguedad, precioMin, precioMax, estadoLead, soloRebajas, portal } = req.query;
+    if (portal) {
+      whereClauses.push('(portal = ? OR metadata_json LIKE ?)');
+      params.push(portal.toLowerCase(), `%"portales":%${portal.toLowerCase()}%`);
+    }
+
+    if (soloRebajas === 'true') {
+      whereClauses.push('tiene_rebaja = 1');
+    }
+
     if (antiguedad === '24h') {
       const limite24h = Date.now() - (24 * 60 * 60 * 1000);
       whereClauses.push('timestamp_ms >= ?');
@@ -1667,10 +1676,30 @@ app.get("/api/offers", (req, res) => {
       const m2Val = meta.m2 || 0;
       const precioM2 = (m2Val > 0 && r.precio > 0) ? Math.round(r.precio / m2Val) : null;
 
+      let rebajaInfo = null;
+      if (r.tiene_rebaja) {
+        try {
+          rebajaInfo = dbInst.prepare(`
+            SELECT precio_anterior, precio_nuevo, diferencia_cop, porcentaje_rebaja, portal, fecha_deteccion 
+            FROM historial_precios 
+            WHERE lead_id = ? 
+            ORDER BY timestamp_ms DESC 
+            LIMIT 1
+          `).get(r.id);
+        } catch (e) {}
+      }
+
+      const portalesList = Array.isArray(meta.portales) ? meta.portales : [r.portal || 'fincaraiz'];
+
       return {
         id: r.id,
         titulo: r.titulo,
         tienda: (r.portal || 'Finca Raíz').toUpperCase(),
+        portales: portalesList,
+        enlacesPorPortal: meta.enlaces || { [r.portal || 'fincaraiz']: r.enlace },
+        preciosPorPortal: meta.preciosPorPortal || null,
+        tieneRebaja: Boolean(r.tiene_rebaja),
+        rebajaInfo,
         categoria: `${(r.tipo_inmueble || 'inmueble').toUpperCase()} (${(r.operacion || 'venta').toUpperCase()})`,
         tipoInmueble: r.tipo_inmueble || 'apartamento',
         operacion: r.operacion || 'venta',
@@ -1678,7 +1707,7 @@ app.get("/api/offers", (req, res) => {
         precioActual: r.precio,
         precioOriginal: r.precio,
         precioM2: precioM2,
-        descuento_pct: 0,
+        descuento_pct: rebajaInfo ? rebajaInfo.porcentaje_rebaja : 0,
         ciudad: r.ciudad ? (r.ciudad.charAt(0).toUpperCase() + r.ciudad.slice(1)) : 'Colombia',
         barrio: r.barrio || 'Sector no especificado',
         telefono: r.telefono || 'Sin teléfono público',
@@ -1710,6 +1739,16 @@ app.get("/api/offers", (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint para auditoría de cambios de precio
+app.get('/api/offers/:id/price-history', (req, res) => {
+  try {
+    const history = dbInst.prepare('SELECT * FROM historial_precios WHERE lead_id = ? ORDER BY timestamp_ms ASC').all(req.params.id);
+    res.json({ history });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
