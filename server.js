@@ -1612,7 +1612,7 @@ app.get("/api/offers", (req, res) => {
       params.push(`%${busqueda}%`, `%${busqueda}%`, `%${busqueda}%`);
     }
 
-    const { antiguedad, precioMin, precioMax, estadoLead, soloRebajas, portal } = req.query;
+    const { antiguedad, precioMin, precioMax, estadoLead, soloRebajas, portal, urgencia } = req.query;
     if (portal) {
       whereClauses.push('(portal = ? OR metadata_json LIKE ?)');
       params.push(portal.toLowerCase(), `%"portales":%${portal.toLowerCase()}%`);
@@ -1620,6 +1620,14 @@ app.get("/api/offers", (req, res) => {
 
     if (soloRebajas === 'true') {
       whereClauses.push('tiene_rebaja = 1');
+    }
+
+    if (urgencia === 'urgente') {
+      whereClauses.push('(metadata_json LIKE ? OR metadata_json LIKE ?)');
+      params.push('%"esUrgente":true%', '%"nivelUrgencia":"ALTA"%');
+    } else if (urgencia === 'arbitraje') {
+      whereClauses.push('metadata_json LIKE ?');
+      params.push('%"esArbitraje":true%');
     }
 
     if (antiguedad === '24h') {
@@ -1700,6 +1708,14 @@ app.get("/api/offers", (req, res) => {
         preciosPorPortal: meta.preciosPorPortal || null,
         tieneRebaja: Boolean(r.tiene_rebaja),
         rebajaInfo,
+        esUrgente: Boolean(meta.esUrgente),
+        nivelUrgencia: meta.nivelUrgencia || 'NORMAL',
+        senalesUrgencia: meta.senalesUrgencia || [],
+        esArbitraje: Boolean(meta.esArbitraje),
+        arbitrajeInfo: meta.esArbitraje ? {
+          descuentoPct: meta.descuentoMercadoPct || 0,
+          etiqueta: meta.arbitrajeEtiqueta || ''
+        } : null,
         categoria: `${(r.tipo_inmueble || 'inmueble').toUpperCase()} (${(r.operacion || 'venta').toUpperCase()})`,
         tipoInmueble: r.tipo_inmueble || 'apartamento',
         operacion: r.operacion || 'venta',

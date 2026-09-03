@@ -596,7 +596,7 @@ async function loadOffers(page = 1) {
   const ciudad = document.getElementById("offerCityFilter")?.value || "";
   const precioMin = document.getElementById("offerPriceMin")?.value || "";
   const precioMax = document.getElementById("offerPriceMax")?.value || "";
-  const estadoLead = document.getElementById("offerLeadStatusFilter")?.value || "";
+  const urgencia = document.getElementById("offerUrgencyFilter")?.value || "";
   const portal = document.getElementById("offerPortalFilter")?.value || "";
   const soloRebajas = document.getElementById("offerPriceDropFilter")?.value || "";
   const antiguedad = document.getElementById("offerAgeFilter")?.value || "";
@@ -617,7 +617,7 @@ async function loadOffers(page = 1) {
 
   if (precioMin) params.append("precioMin", precioMin);
   if (precioMax) params.append("precioMax", precioMax);
-  if (estadoLead) params.append("estadoLead", estadoLead);
+  if (urgencia) params.append("urgencia", urgencia);
   if (portal) params.append("portal", portal);
   if (soloRebajas) params.append("soloRebajas", soloRebajas);
 
@@ -879,25 +879,26 @@ function renderOffers(data) {
             ` : ''}
           </div>
 
-          <!-- GESTIÓN DE CONTACTO (CRM) -->
-          <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 8px; margin-bottom: 8px;">
-            <span style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">
-              Estado Lead:
-            </span>
-            <select class="input-field" style="padding: 2px 8px; font-size: 0.75rem; height: 26px; border-radius: 4px; width: auto; background: var(--bg-surface); font-weight: 500;" onchange="cambiarEstadoLead(${ofr.id}, this.value)">
-              <option value="nuevo" ${estadoActual === 'nuevo' ? 'selected' : ''}>Nuevo</option>
-              <option value="contactado" ${estadoActual === 'contactado' ? 'selected' : ''}>Contactado</option>
-              <option value="negociacion" ${estadoActual === 'negociacion' ? 'selected' : ''}>En Negociación</option>
-              <option value="descartado" ${estadoActual === 'descartado' ? 'selected' : ''}>Descartado</option>
-            </select>
-          </div>
+          ${ofr.esUrgente && ofr.senalesUrgencia && ofr.senalesUrgencia.length > 0 ? `
+            <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 5px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <i class="fa-solid fa-fire" style="color: #ef4444;"></i>
+              <span>VENDEDOR MOTIVADO: ${ofr.senalesUrgencia.map(escaparHtml).join(' · ')}</span>
+            </div>
+          ` : ''}
+
+          ${ofr.arbitrajeInfo && ofr.arbitrajeInfo.descuentoPct >= 10 ? `
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); color: #86efac; padding: 5px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <i class="fa-solid fa-chart-line" style="color: #10b981;"></i>
+              <span>${escaparHtml(ofr.arbitrajeInfo.etiqueta)}</span>
+            </div>
+          ` : ''}
         </div>
 
         <div class="offer-card-actions" style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
           ${ofr.enlacesPorPortal && Object.keys(ofr.enlacesPorPortal).length > 1 ? (
             Object.entries(ofr.enlacesPorPortal).map(([p, url]) => `
-              <a href="${url}" target="_blank" rel="noopener noreferrer" class="offer-btn-buy" style="background: var(--bg-surface); border: 1px solid var(--border-color); flex: 1; text-align: center; justify-content: center; font-size: 0.75rem; padding: 6px 8px;">
-                <i class="fa-solid fa-arrow-up-right-from-square"></i> ${p.toUpperCase()}
+              <a href="${url}" target="_blank" rel="noopener noreferrer" class="offer-btn-buy" style="background: var(--bg-surface); border: 1px solid var(--border-color); flex: 1; text-align: center; justify-content: center; font-size: 0.75rem; padding: 8px 10px;">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver en ${p.toUpperCase()}
               </a>
             `).join('')
           ) : `
@@ -905,11 +906,6 @@ function renderOffers(data) {
               <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Anuncio
             </a>
           `}
-          ${waUrl ? `
-            <a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-sm" style="background: #22c55e; color: #fff; text-decoration: none; display: flex; align-items: center; justify-content: center; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 0.8rem;" title="Abrir WhatsApp">
-              <i class="fa-brands fa-whatsapp"></i>
-            </a>
-          ` : ''}
         </div>
       </div>
     `;
@@ -931,28 +927,6 @@ function renderOffers(data) {
     pagination.innerHTML = "";
   }
 }
-
-/**
- * Actualiza el estado de un lead en SQLite desde la tarjeta Mini-CRM.
- * @param {number} id - ID del lead
- * @param {string} nuevoEstado - 'nuevo' | 'contactado' | 'negociacion' | 'descartado'
- */
-window.cambiarEstadoLead = async function(id, nuevoEstado) {
-  try {
-    const res = await fetch(`/api/offers/${id}/status`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ estado: nuevoEstado })
-    });
-    if (res.ok) {
-      console.log(`[Mini-CRM] Lead #${id} actualizado a '${nuevoEstado}' exitosamente.`);
-    } else {
-      console.warn(`[Mini-CRM] Error actualizando lead #${id}`);
-    }
-  } catch (e) {
-    console.warn(`[Mini-CRM] Excepción de red al actualizar lead #${id}:`, e.message);
-  }
-};
 
 // Listeners de búsqueda y filtros
 document.addEventListener("DOMContentLoaded", () => {
@@ -985,8 +959,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const priceMax = document.getElementById("offerPriceMax");
   if (priceMax) priceMax.addEventListener("change", () => loadOffers(1));
 
-  const statusFilter = document.getElementById("offerLeadStatusFilter");
-  if (statusFilter) statusFilter.addEventListener("change", () => loadOffers(1));
+  const urgencyFilter = document.getElementById("offerUrgencyFilter");
+  if (urgencyFilter) urgencyFilter.addEventListener("change", () => loadOffers(1));
 
   const portalFilter = document.getElementById("offerPortalFilter");
   if (portalFilter) portalFilter.addEventListener("change", () => loadOffers(1));
