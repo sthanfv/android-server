@@ -770,8 +770,7 @@ document.getElementById("btnCloseHistoryModal")?.addEventListener("click", () =>
 function renderOffers(data) {
   const grid = document.getElementById("offersGrid");
   const pagination = document.getElementById("offersPagination");
-  if (!grid) return;
-
+  if (!data || !data.ofertas || data.ofertas.length === 0) {
     grid.innerHTML = `
       <div class="offers-empty" style="text-align: center; padding: 40px 20px;">
         <i class="fa-solid fa-building-user" style="font-size: 3rem; color: var(--primary-color); margin-bottom: 15px;"></i>
@@ -789,56 +788,49 @@ function renderOffers(data) {
   for (const ofr of data.ofertas) {
     if (tiendasExcluidas.includes(ofr.tienda)) continue;
 
-    const precioActualFmt = Number(ofr.precio_actual || 0).toLocaleString("es-CO");
-    const precioOrigFmt = Number(ofr.precio_original || 0).toLocaleString("es-CO");
-    const ahorroFmt = Number((ofr.precio_original || 0) - (ofr.precio_actual || 0)).toLocaleString("es-CO");
-    
-    const isNew = ofr.creado_el && (Date.now() - new Date(ofr.creado_el).getTime() < 24 * 60 * 60 * 1000);
-    const isUpdated = ofr.actualizado_el && !isNew && (Date.now() - new Date(ofr.actualizado_el).getTime() < 24 * 60 * 60 * 1000);
-    let badgesEstado = "";
-    if (isNew) badgesEstado += `<div class="badge-nuevo-fuego"><i class="fa-solid fa-fire"></i> NUEVO</div>`;
-    else if (isUpdated) badgesEstado += `<div class="badge-actualizado"><i class="fa-solid fa-arrow-trend-down"></i> BAJÓ</div>`;
-    
-    const tiendaEscapada = escaparHtml(ofr.tienda);
-    const isFB = tiendaEscapada.toLowerCase().includes('facebook');
-    const storeNameDisplay = isFB ? 'Vendedor Local' : tiendaEscapada;
-    const discountBadgeHtml = isFB ? '' : `<span class="offer-discount-badge">${ofr.descuento_pct}% DTO</span>`;
-    const originalPriceHtml = isFB ? '' : `<span class="offer-original-price">Antes: $ ${precioOrigFmt}</span>`;
-    const savingBadgeHtml = isFB || (ofr.precio_original <= ofr.precio_actual) ? '' : `<div class="offer-saving-badge"><i class="fa-solid fa-piggy-bank"></i> Ahorras: $ ${ahorroFmt} COP</div>`;
-    const badgeMinimo = isFB ? '' : (ofr.es_minimo_historico ? `<div class="badge-minimo-historico"><i class="fa-solid fa-fire-flame-curved"></i> ¡MÍNIMO HISTÓRICO!</div>` : "");
-    const badgeGlitch = ofr.esErrorPrecio ? `<div style="background: linear-gradient(90deg, #ef4444, #b91c1c); color: white; padding: 4px 10px; border-radius: 6px; font-weight: 800; font-size: 0.75rem; margin-top: 5px; display: inline-block; animation: pulse 1.5s infinite;"><i class="fa-solid fa-triangle-exclamation"></i> 🚨 GLITCH / ERROR DE PRECIO</div>` : "";
+    const precioActual = ofr.precioActual || ofr.precio_actual || 0;
+    const precioActualFmt = Number(precioActual).toLocaleString("es-CO");
+    const portalEscapado = escaparHtml(ofr.tienda || "Finca Raíz");
     const tituloHtml = escaparHtml(ofr.titulo || "");
-    const tituloEscapado = tituloHtml.replace(/'/g, "\\'").replace(/"/g, "&quot;");
-    const extraCardStyle = ofr.esErrorPrecio ? 'border: 2px solid #ef4444; box-shadow: 0 0 15px rgba(239,68,68,0.4);' : '';
+    const nombreContacto = escaparHtml(ofr.nombreContacto || "Propietario Particular");
+    const telefonoContacto = escaparHtml(ofr.telefono || "En verificación");
+    const ciudadBarrio = `${escaparHtml(ofr.barrio || "")}, ${escaparHtml(ofr.ciudad || "Colombia")}`.replace(/^, /, "");
+    const categoriaHtml = escaparHtml(ofr.categoria || "Inmueble");
 
     html += `
-      <div class="offer-card" style="${extraCardStyle}">
+      <div class="offer-card" style="border: 1px solid rgba(16, 185, 129, 0.3); box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
         <div>
-          <div class="offer-card-header">
-            <span class="offer-store-badge" data-store="${tiendaEscapada}">${escaparHtml(ofr.emoji) || "📦"} ${storeNameDisplay}</span>
-            ${discountBadgeHtml}
+          <div class="offer-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span class="offer-store-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">
+              <i class="fa-solid fa-user-check"></i> PROPIETARIO DIRECTO
+            </span>
+            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">
+              ${portalEscapado}
+            </span>
           </div>
-          <h4 class="offer-title" title="${tituloHtml}">${tituloHtml}</h4>
+          <h4 class="offer-title" title="${tituloHtml}" style="font-size: 0.95rem; font-weight: 600; margin-bottom: 8px;">${tituloHtml}</h4>
+          
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 10px; margin-bottom: 10px; font-size: 0.85rem;">
+            <div style="color: var(--text-muted); margin-bottom: 4px;">
+              <i class="fa-solid fa-location-dot" style="color: #ef4444; width: 16px;"></i> <strong>${ciudadBarrio}</strong>
+            </div>
+            <div style="color: var(--text-muted); margin-bottom: 4px;">
+              <i class="fa-solid fa-user" style="color: #3b82f6; width: 16px;"></i> Dueño: <strong style="color: var(--text-color);">${nombreContacto}</strong>
+            </div>
+            <div style="color: var(--text-muted);">
+              <i class="fa-solid fa-phone" style="color: #10b981; width: 16px;"></i> Tel / WhatsApp: <strong class="mono" style="color: #10b981;">${telefonoContacto}</strong>
+            </div>
+          </div>
+
           <div class="offer-price-box">
-            <div style="display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px;">
-              <span class="offer-current-price">$ ${precioActualFmt}</span>
-              ${originalPriceHtml}
-            </div>
-            ${savingBadgeHtml}
-            <div>
-              ${badgesEstado}
-              ${badgeMinimo}
-              ${badgeGlitch}
-            </div>
+            <span class="offer-current-price" style="color: #10b981; font-size: 1.25rem;">$ ${precioActualFmt} COP</span>
+            <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 6px;">(${categoriaHtml})</span>
           </div>
         </div>
-        <div class="offer-card-actions">
-          <a href="${ofr.enlace}" target="_blank" rel="noopener noreferrer" class="offer-btn-buy">
-            <i class="fa-solid fa-bolt"></i> Aprovechar Ganga
+        <div class="offer-card-actions" style="margin-top: 12px;">
+          <a href="${ofr.enlace}" target="_blank" rel="noopener noreferrer" class="offer-btn-buy" style="background: var(--primary-color); text-align: center; justify-content: center;">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Anuncio Original
           </a>
-          <button class="offer-btn-history" title="Ver historial de precios" onclick="showOfferHistory(${ofr.id}, '${tituloEscapado}')">
-            <i class="fa-solid fa-chart-line"></i>
-          </button>
         </div>
       </div>
     `;
