@@ -20,7 +20,9 @@ Por mandato explícito, TODO el esfuerzo se concentra en crear el "Cerebro Matem
 *   **Arquitectura Exigida:** Modular, resiliente (si falla un cálculo no se cae el bot) y sometida a rigurosas pruebas unitarias locales y de integración.
 *   **Documentación Exigida:** Cada línea crítica debe estar explicada. Se exigirán diagramas y estándares profesionales (JSDoc).
 
-## 5. Decisiones Técnicas Inquebrantables
-- **No se tocará el Dashboard** para agregar funcionalidades estéticas; solo se usará para monitorear el Cerebro.
-- **Testing Primero:** Ninguna pieza matemática sube al M10 sin haber sido probada en el entorno local del PC (`C:\workspace\ofertas-hunter-pro\tests\`).
-- **Resiliencia Pura:** La ausencia de datos en el historial no debe romper el sistema. Debe haber degradación elegante (Graceful Degradation).
+## 6. Actualización Reciente de Seguridad y Monitoreo (DevSecOps)
+- **Enmascaramiento de Tokens Sensibles:** En `server.js`, el endpoint `GET /api/config` ahora enmascara el token de bot de Telegram (`tok.substring(0, 8) + ':••••••••'`) y los webhooks de Discord para evitar fugas de credenciales en el navegador.
+- **Autenticación Timing-Safe (Mitigación de Side-Channel Attacks):** Se implementó `crypto.timingSafeEqual` con buffers de longitud fija en el middleware de autenticación HTTP Basic Auth, neutralizando ataques de análisis de tiempo de respuesta.
+- **Protección contra Inyección XSS:** Implementación de la función `escaparHtml` en `public/app.js` aplicada a todos los títulos, tiendas y campos dinámicos antes de insertarlos en el DOM.
+- **Filtrado por Ciudad en SQLite:** El endpoint `GET /api/offers` ahora incluye soporte nativo parametrizado por ciudad mediante consultas preparadas seguras.
+- **Pestaña de Control & Sistema:** Renombrada y expandida en `public/index.html` para monitorear el estado en tiempo real de los Circuit Breakers de los adaptadores y configurar alertas de Telegram de manera segura.

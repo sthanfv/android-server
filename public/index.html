@@ -73,9 +73,6 @@
         <button class="tab-btn" data-tab="tab-offers">
           <i class="fa-solid fa-crosshairs"></i> Inteligencia de Leads
         </button>
-        <button class="tab-btn" data-tab="tab-apphub">
-          <i class="fa-solid fa-store"></i> App Hub (1-Clic)
-        </button>
 
         <button class="tab-btn" data-tab="tab-settings">
           <i class="fa-solid fa-sliders"></i>
@@ -369,9 +366,14 @@
                 <option value="rionegro">Rionegro / Oriente</option>
                 <option value="cali">Cali</option>
                 <option value="barranquilla">Barranquilla</option>
+                <option value="cartagena">Cartagena de Indias</option>
+                <option value="santa-marta">Santa Marta</option>
                 <option value="bucaramanga">Bucaramanga</option>
+                <option value="floridablanca">Floridablanca</option>
                 <option value="pereira">Pereira (Eje Cafetero)</option>
                 <option value="manizales">Manizales</option>
+                <option value="armenia">Armenia (Quindío)</option>
+                <option value="ibague">Ibagué</option>
               </select>
             </div>
             <div class="filter-group">
@@ -406,12 +408,20 @@
               </select>
             </div>
             <div class="filter-group">
-              <label><i class="fa-solid fa-clock"></i> Antigüedad del Lead:</label>
+              <label><i class="fa-solid fa-clock"></i> Fecha de Publicación:</label>
               <select id="offerAgeFilter" class="input-field">
                 <option value="">Todas las Fechas</option>
-                <option value="24h">Últimas 24h (Leads Calientes)</option>
+                <option value="24h">Últimas 24 Horas (Nuevas)</option>
                 <option value="7d">Últimos 7 Días</option>
-                <option value="30d_plus">+30 Días (Negociables)</option>
+                <option value="30d_plus">+30 Días (Mayor Margen)</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label><i class="fa-solid fa-house-circle-check" style="color: #10b981;"></i> Disponibilidad del Inmueble:</label>
+              <select id="offerHealthStatusFilter" class="input-field">
+                <option value="">Solo Disponibles (En Venta / Arriendo)</option>
+                <option value="vendido">🏷️ Vendidos / Retirados (Estudio de Mercado)</option>
+                <option value="todos">Todo el Inventario</option>
               </select>
             </div>
             <div class="filter-group">
@@ -450,31 +460,6 @@
         <!-- Paginación -->
         <div class="offers-pagination" id="offersPagination"></div>
       </main>
-
-      <!-- ========================================== -->
-      <!-- PESTAÑA 2: APP HUB (TIENDA EN 1 CLIC)     -->
-      <!-- ========================================== -->
-      <main class="tab-content" id="tab-apphub">
-        <div class="section-intro">
-          <h2>
-            <i class="fa-solid fa-store icon-cyan"></i> Centro de Integraciones
-            en 1 Clic
-          </h2>
-          <p class="subtitle">
-            Instala y ejecuta microservicios optimizados para ARM sin tocar la
-            terminal.
-          </p>
-        </div>
-
-        <div class="apps-grid" id="appsGrid">
-          <!-- Renderizado dinámico de PocketBase, AdGuard y Gotify -->
-        </div>
-      </main>
-
-      <!-- ========================================== -->
-      <!-- PESTAÑA 3: DESPLEGADOR WEB (ESTILO VERCEL)-->
-      <!-- ========================================== -->
-      
 
       <!-- FOOTER -->
       <footer class="main-footer">
@@ -609,6 +594,6 @@
       </div>
     </div>
 
-    <script src="app.js?v=10.0"></script>
+    <script src="app.js?v=10.3"></script>
   </body>
 </html>

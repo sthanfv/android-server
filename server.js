@@ -1315,6 +1315,79 @@ app.get("/api/network-events", (req, res) => {
   });
 });
 
+// 2b. Telemetría de Errores e Incidentes (Structured Logging NDJSON estilo Pino)
+app.get("/api/telemetry/errors", (req, res) => {
+  try {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const logsDir = path.join(BASE_DIR, "..", "ofertas-hunter-pro", "data", "logs");
+    const archivoLog = path.join(logsDir, `${hoy}.log`);
+
+    if (!fs.existsSync(archivoLog)) {
+      return res.json({ totalIncidentes: 0, porNivel: { WARN: 0, ERROR: 0, FATAL: 0 }, porModulo: {}, ultimosIncidentes: [] });
+    }
+
+    const lineas = fs.readFileSync(archivoLog, "utf8").trim().split("\n");
+    const incidentes = [];
+    const porNivel = { WARN: 0, ERROR: 0, FATAL: 0 };
+    const porModulo = {};
+
+    for (let i = lineas.length - 1; i >= 0; i--) {
+      const l = lineas[i].trim();
+      if (!l) continue;
+      try {
+        const obj = JSON.parse(l);
+        if (obj.level === "WARN" || obj.level === "ERROR" || obj.level === "FATAL") {
+          porNivel[obj.level] = (porNivel[obj.level] || 0) + 1;
+          const mod = obj.module || "general";
+          porModulo[mod] = (porModulo[mod] || 0) + 1;
+          if (incidentes.length < 15) {
+            incidentes.push({
+              time: obj.time,
+              level: obj.level,
+              module: mod,
+              msg: obj.msg,
+              data: obj.data
+            });
+          }
+        }
+      } catch (e) {}
+    }
+
+    res.json({
+      totalIncidentes: (porNivel.WARN + porNivel.ERROR + porNivel.FATAL),
+      porNivel,
+      porModulo,
+      ultimosIncidentes: incidentes
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2c. Telemetría de Rate Limiter Adaptativo y Token Bucket (Crawl4AI pattern)
+app.get("/api/telemetry/rate-limits", (req, res) => {
+  try {
+    let adaptiveLimiter = null;
+    try {
+      adaptiveLimiter = require(path.join(BASE_DIR, "..", "ofertas-hunter-pro", "adaptive_limiter"));
+    } catch (e) {}
+
+    if (!adaptiveLimiter) {
+      return res.json({ dominios: {} });
+    }
+
+    res.json({
+      dominios: {
+        fincaraiz: adaptiveLimiter.obtenerEstado("fincaraiz"),
+        metrocuadrado: adaptiveLimiter.obtenerEstado("metrocuadrado"),
+        data_health: adaptiveLimiter.obtenerEstado("data_health")
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 3. Configuración y Alertas
 app.get("/api/config", (req, res) => {
   const config = loadConfig();
@@ -1654,9 +1727,16 @@ app.get("/api/offers", (req, res) => {
       whereClauses.push('precio <= ?');
       params.push(Number(precioMax));
     }
-    if (estadoLead) {
+    if (estadoLead === 'vendido') {
+      whereClauses.push("estado_lead = 'vendido'");
+    } else if (estadoLead === 'todos') {
+      // No filtrar por estado
+    } else if (estadoLead) {
       whereClauses.push('estado_lead = ?');
       params.push(estadoLead.toLowerCase());
+    } else {
+      // Por defecto, no mostrar inmuebles que ya fueron vendidos o retirados
+      whereClauses.push("COALESCE(estado_lead, '') != 'vendido'");
     }
 
     const whereSql = whereClauses.length > 0 ? 'WHERE ' + whereClauses.join(' AND ') : '';
@@ -1722,9 +1802,9 @@ app.get("/api/offers", (req, res) => {
         tipoInmueble: r.tipo_inmueble || 'apartamento',
         operacion: r.operacion || 'venta',
         emoji: r.tipo_inmueble === 'casa' ? '🏡' : (r.tipo_inmueble === 'lotes' ? '🏞️' : '🏢'),
-        precioActual: r.precio,
-        precioOriginal: r.precio,
-        precioM2: precioM2,
+        precioActual: (rebajaInfo && rebajaInfo.precio_nuevo) ? rebajaInfo.precio_nuevo : r.precio,
+        precioOriginal: (rebajaInfo && rebajaInfo.precio_anterior) ? rebajaInfo.precio_anterior : r.precio,
+        precioM2: (m2Val > 0) ? Math.round(((rebajaInfo && rebajaInfo.precio_nuevo) ? rebajaInfo.precio_nuevo : r.precio) / m2Val) : precioM2,
         descuento_pct: rebajaInfo ? rebajaInfo.porcentaje_rebaja : 0,
         ciudad: r.ciudad ? (r.ciudad.charAt(0).toUpperCase() + r.ciudad.slice(1)) : 'Colombia',
         barrio: r.barrio || 'Sector no especificado',
@@ -1742,9 +1822,14 @@ app.get("/api/offers", (req, res) => {
         tieneWhatsapp: Boolean(meta.tieneWhatsapp),
         coordenadas: meta.coordenadas || null,
         estadoLead: r.estado_lead || 'nuevo',
+        diasEnMercado: r.dias_en_mercado || meta.dias_en_mercado || 0,
+        fechaBaja: r.fecha_baja || meta.fecha_baja || null,
+        esVendido: (r.estado_lead === 'vendido'),
         notas: r.notas || '',
         actualizado_el: r.fecha_captura,
-        es_minimo_historico: 1
+        es_minimo_historico: 1,
+        auditoria_b2b: meta.auditoria_b2b || null,
+        rawResponseSha256: meta.auditoria_b2b?.raw_response_sha256 || null
       };
     });
 
@@ -1757,6 +1842,68 @@ app.get("/api/offers", (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint B2B: Exportación oficial de Leads a CSV con sellos criptográficos
+app.get("/api/leads/export-csv", (req, res) => {
+  const dbInst = getHunterDb();
+  if (!dbInst) return res.status(500).send("Base de datos no disponible");
+
+  try {
+    const leads = dbInst.prepare("SELECT * FROM leads ORDER BY timestamp_ms DESC").all();
+    const columnas = [
+      'ID', 'Fecha Captura', 'Portal', 'Ciudad', 'Barrio', 'Operacion', 
+      'Tipo Inmueble', 'Titulo', 'Precio COP', 'Precio m2', 'Area m2', 
+      'Habitaciones', 'Banos', 'Dueno', 'Telefono', 'Tiene WhatsApp', 
+      'Vendedor Motivado', 'Senales Urgencia', 'Tiene Rebaja', 'Enlace',
+      'Sello Criptografico SHA256'
+    ];
+
+    const escapeCsv = (str) => `"${String(str || '').replace(/"/g, '""')}"`;
+
+    const filas = leads.map(l => {
+      let meta = {};
+      try { meta = typeof l.metadata_json === 'string' ? JSON.parse(l.metadata_json) : (l.metadata_json || {}); } catch(e) {}
+      
+      const m2 = Number(meta.m2) || 0;
+      const precio = Number(l.precio) || 0;
+      const precioM2 = m2 > 0 ? Math.round(precio / m2) : '';
+      const senales = meta.senalesUrgencia && Array.isArray(meta.senalesUrgencia) ? meta.senalesUrgencia.join(' | ') : '';
+      const sha256 = meta.auditoria_b2b?.raw_response_sha256 || '';
+
+      return [
+        l.id,
+        escapeCsv(l.fecha_captura),
+        escapeCsv(l.portal),
+        escapeCsv(l.ciudad),
+        escapeCsv(l.barrio),
+        escapeCsv(l.operacion),
+        escapeCsv(l.tipo_inmueble),
+        escapeCsv(l.titulo),
+        precio,
+        precioM2,
+        m2,
+        meta.habitaciones || '',
+        meta.banos || '',
+        escapeCsv(l.nombre_contacto),
+        escapeCsv(l.telefono),
+        meta.tieneWhatsapp ? 'SI' : 'NO',
+        meta.esUrgente ? 'SI' : 'NO',
+        escapeCsv(senales),
+        l.tiene_rebaja ? 'SI' : 'NO',
+        escapeCsv(l.enlace),
+        escapeCsv(sha256)
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + [columnas.join(','), ...filas].join('\r\n');
+    const hoy = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="leads_hunter_pro_${hoy}.csv"`);
+    res.send(csvContent);
+  } catch(e) {
+    res.status(500).send("Error generando CSV: " + e.message);
   }
 });
 

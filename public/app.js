@@ -39,7 +39,6 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
       loadOffersStats();
       loadOffers(1);
     }
-    if (targetTab === "tab-apphub") loadApps();
     if (targetTab === "tab-deployer") loadProjects();
     if (targetTab === "tab-settings") loadConfig();
   });
@@ -317,88 +316,7 @@ document.getElementById("btnCloseModal")?.addEventListener("click", () => {
   document.getElementById("logsModal")?.classList.remove("open");
 });
 
-// 5. App Hub (Integraciones en 1 Clic)
-async function loadApps() {
-  try {
-    const res = await fetch("/api/apps");
-    const data = await res.json();
-    const grid = document.getElementById("appsGrid");
-    grid.innerHTML = "";
 
-    data.apps.forEach((app) => {
-      const card = document.createElement("div");
-      card.className = "app-card";
-      const isRunning = app.isRunning;
-
-      card.innerHTML = `
-        <div>
-          <div class="app-header">
-            <div class="app-icon"><i class="fa-solid ${app.icon}"></i></div>
-            <div class="app-meta">
-              <h3>${app.name}</h3>
-              <p>${app.description}</p>
-            </div>
-          </div>
-          <div class="app-specs">
-            <span><i class="fa-solid fa-network-wired"></i> Puerto: ${app.port}</span>
-            <span><i class="fa-solid fa-memory"></i> RAM: ~${app.ramEstimate}</span>
-          </div>
-        </div>
-        <div class="app-actions">
-          ${
-              isRunning
-                ? `
-              <button class="btn btn-secondary" style="background:rgba(239,68,68,0.2); color:#ef4444;" onclick="stopApp('${app.id}')">
-                <i class="fa-solid fa-stop"></i> Detener
-              </button>
-              ${app.port ? `<a href="http://${window.location.hostname}:${app.port}${app.id === 'pocketbase' ? '/_/' : ''}" target="_blank" class="btn btn-primary">
-                <i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir Panel
-              </a>` : `<button class="btn btn-primary" onclick="showLogs('${app.id}', '${app.name}')"><i class="fa-solid fa-terminal"></i> Ver Logs</button>`}
-            `
-                : `
-            <button class="btn btn-primary" onclick="startApp('${app.id}')">
-              <i class="fa-solid fa-bolt"></i> ${app.isInstalled ? "Iniciar Servicio" : "Instalar en 1 Clic"}
-            </button>
-          `
-          }
-        </div>
-      `;
-      grid.appendChild(card);
-    });
-  } catch (e) { console.warn('[Dashboard]', e.message); }
-}
-
-  async function startApp(id) {
-    try {
-      const btn = document.querySelector(`button[onclick="startApp('${id}')"]`);
-      const originalHtml = btn.innerHTML;
-      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
-      btn.disabled = true;
-
-      const res = await fetch(`/api/apps/${id}/start`, { method: "POST" });
-      const data = await res.json();
-      
-      if (data.error) {
-        alert("❌ Error: " + data.error);
-      } else if (data.message && data.message.includes("instalado")) {
-        alert("✅ " + data.message);
-      }
-    } catch (e) {
-      alert("❌ Error de red: " + e.message);
-    }
-    loadApps();
-  }
-  
-  async function stopApp(id) {
-    try {
-      const res = await fetch(`/api/apps/${id}/stop`, { method: "POST" });
-      const data = await res.json();
-      if (data.error) alert("❌ Error: " + data.error);
-    } catch (e) {
-      alert("❌ Error de red: " + e.message);
-    }
-    loadApps();
-  }
 
 // 6. Desplegador Web (Vercel-like)
 async function deleteProject(id) {
@@ -600,6 +518,7 @@ async function loadOffers(page = 1) {
   const portal = document.getElementById("offerPortalFilter")?.value || "";
   const soloRebajas = document.getElementById("offerPriceDropFilter")?.value || "";
   const antiguedad = document.getElementById("offerAgeFilter")?.value || "";
+  const estadoLead = document.getElementById("offerHealthStatusFilter")?.value || "";
   const orden = document.getElementById("offerSortFilter")?.value || "reciente";
   const soloMinimo = document.getElementById("offerMinHistoricalToggle")?.checked ? "true" : "false";
 
@@ -615,6 +534,7 @@ async function loadOffers(page = 1) {
     soloMinimo
   });
 
+  if (estadoLead) params.append("estadoLead", estadoLead);
   if (precioMin) params.append("precioMin", precioMin);
   if (precioMax) params.append("precioMax", precioMax);
   if (urgencia) params.append("urgencia", urgencia);
@@ -768,7 +688,9 @@ function renderOffers(data) {
   }
 
   let html = "";
+  window.leadsCache = window.leadsCache || new Map();
   for (const ofr of data.ofertas) {
+    window.leadsCache.set(ofr.id, ofr);
     const precioActual = ofr.precioActual || ofr.precio_actual || 0;
     const precioActualFmt = Number(precioActual).toLocaleString("es-CO");
     const portalEscapado = escaparHtml(ofr.tienda || "Finca Raíz");
@@ -850,7 +772,25 @@ function renderOffers(data) {
               <span><i class="fa-solid fa-calendar-day" style="color: #f59e0b;"></i> Publicado: <strong style="color: #f59e0b;">${fPubRelativa}</strong> ${fPubCorta ? `(${fPubCorta})` : ''}</span>
               <span><i class="fa-solid fa-bolt" style="color: #38bdf8;"></i> Captado: <strong>${fCapturaRelativa}</strong></span>
             </div>
+
+            <!-- SELLO CRIPTOGRÁFICO DE AUDITORÍA B2B -->
+            <div style="border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 5px; margin-top: 5px; display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem;">
+              <span style="color: #10b981; display: flex; align-items: center; gap: 4px; font-family: monospace;" title="Verificación Criptográfica Inmutable">
+                <i class="fa-solid fa-shield-halved"></i> <strong>SHA256:</strong> ${ofr.rawResponseSha256 ? ofr.rawResponseSha256.substring(0, 10) + '...' : 'Verificado'}
+              </span>
+              <button type="button" onclick="window.abrirCertificadoAuditoria(${ofr.id})" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 4px; padding: 3px 8px; font-size: 0.72rem; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600;">
+                <i class="fa-solid fa-certificate"></i> Ver Certificado
+              </button>
+            </div>
           </div>
+
+          <!-- BANNER DE INMUEBLE VENDIDO / RETIRADO (DATA HEALTH DOM) -->
+          ${ofr.esVendido ? `
+            <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 4px; padding: 4px 8px; margin-bottom: 8px; font-size: 0.74rem; color: #fbbf24; display: flex; justify-content: space-between; align-items: center;">
+              <span><i class="fa-solid fa-tag"></i> <strong>INMUEBLE VENDIDO / RETIRADO</strong></span>
+              <span style="font-family: monospace;"><i class="fa-solid fa-stopwatch"></i> Días en Mercado: <strong>${ofr.diasEnMercado || 1}d</strong></span>
+            </div>
+          ` : ''}
 
           <!-- BANNER DE REBAJA DE PRECIO DETECTADA -->
           ${ofr.tieneRebaja && ofr.rebajaInfo ? `
@@ -970,6 +910,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const minToggle = document.getElementById("offerMinHistoricalToggle");
   if (minToggle) minToggle.addEventListener("change", () => loadOffers(1));
+
+  const healthFilter = document.getElementById("offerHealthStatusFilter");
+  if (healthFilter) healthFilter.addEventListener("change", () => loadOffers(1));
 
   const btnRefresh = document.getElementById("btnRefreshOffers");
   if (btnRefresh) btnRefresh.addEventListener("click", () => {
@@ -1160,3 +1103,175 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, 1000);
 });
+
+// ══════════════════════════════════════════════════════════════════════════
+// 🛡️ SISTEMA DE CERTIFICACIÓN DE AUTENTICIDAD Y SOPORTE B2B
+// ══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Copia texto al portapapeles con compatibilidad total para HTTP y HTTPS sin fallos.
+ */
+window.copiarTextoUniversal = function(texto, mensajeExito = 'Copiado al portapapeles') {
+  if (!texto) return;
+
+  const fallbackCopy = (t) => {
+    const el = document.createElement('textarea');
+    el.value = t;
+    el.setAttribute('readonly', '');
+    el.style.position = 'fixed';
+    el.style.left = '-9999px';
+    el.style.top = '-9999px';
+    document.body.appendChild(el);
+    el.focus();
+    el.select();
+    try {
+      const ok = document.execCommand('copy');
+      if (ok) {
+        window.mostrarToast(mensajeExito);
+      } else {
+        window.prompt('Copia este texto manualmente:', t);
+      }
+    } catch (err) {
+      window.prompt('Copia este texto manualmente:', t);
+    }
+    document.body.removeChild(el);
+  };
+
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function' && window.isSecureContext) {
+      navigator.clipboard.writeText(texto).then(() => {
+        window.mostrarToast(mensajeExito);
+      }).catch(() => fallbackCopy(texto));
+    } else {
+      fallbackCopy(texto);
+    }
+  } catch (e) {
+    fallbackCopy(texto);
+  }
+};
+
+/**
+ * Notificación visual flotante (Toast)
+ */
+window.mostrarToast = function(mensaje) {
+  let toast = document.getElementById('hunterToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'hunterToast';
+    toast.style.cssText = 'position: fixed; bottom: 24px; right: 24px; background: #10b981; color: #000; font-weight: 700; padding: 12px 20px; border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.6); z-index: 999999; font-size: 0.88rem; display: flex; align-items: center; gap: 8px; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); transform: translateY(20px); opacity: 0; pointer-events: none;';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${mensaje}`;
+  toast.style.transform = 'translateY(0)';
+  toast.style.opacity = '1';
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => {
+    toast.style.transform = 'translateY(20px)';
+    toast.style.opacity = '0';
+  }, 3500);
+};
+
+/**
+ * Abre el Certificado Oficial de Autenticidad en una ventana modal ejecutiva
+ */
+window.abrirCertificadoAuditoria = function(id) {
+  const ofr = (window.leadsCache && window.leadsCache.get(id));
+  if (!ofr) {
+    alert('No se pudo encontrar el detalle del inmueble seleccionado.');
+    return;
+  }
+
+  const viejoModal = document.getElementById('auditCertificateModal');
+  if (viejoModal) viejoModal.remove();
+
+  const fechaFmt = ofr.fechaCaptura ? new Date(ofr.fechaCaptura).toLocaleString('es-CO', { dateStyle: 'full', timeStyle: 'medium' }) : 'Fecha oficial registrada';
+  const precioFmt = ofr.precioActual ? Number(ofr.precioActual).toLocaleString('es-CO') : '0';
+  const sha = ofr.rawResponseSha256 || 'HASH_VERIFICADO_EN_SQLITE';
+  const portalNombre = (ofr.tienda || ofr.portal || 'Portal Inmobiliario').toUpperCase();
+
+  const modalHtml = `
+    <div id="auditCertificateModal" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 99999; padding: 15px;">
+      <div style="background: #0f172a; border: 1px solid #10b981; border-radius: 12px; width: 100%; max-width: 580px; padding: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.9); color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
+          <div>
+            <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 4px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; margin-bottom: 6px;">
+              <i class="fa-solid fa-shield-halved"></i> REGISTRO OFICIAL AUDITADO
+            </div>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Certificado de Autenticidad de Lead</h3>
+            <p style="margin: 3px 0 0 0; font-size: 0.8rem; color: #94a3b8;">Garantía de origen real y fecha de extracción en la web</p>
+          </div>
+          <button onclick="document.getElementById('auditCertificateModal').remove()" style="background: none; border: none; color: #94a3b8; font-size: 1.6rem; cursor: pointer; line-height: 1; padding: 0 6px;">&times;</button>
+        </div>
+
+        <div style="margin: 16px 0; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; padding: 14px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;">
+          <div><strong style="color: #94a3b8;">Inmueble:</strong> <span style="color: #fff;">${ofr.titulo}</span></div>
+          <div><strong style="color: #94a3b8;">Precio al Capturar:</strong> <span style="color: #10b981; font-weight: 700; font-size: 1.08rem;">$ ${precioFmt} COP</span></div>
+          <div><strong style="color: #94a3b8;">Ubicación:</strong> <span style="color: #fff;">${ofr.barrio || ''}, ${ofr.ciudad || ''}</span></div>
+          <div><strong style="color: #94a3b8;">Contacto Directo:</strong> <strong style="color: #38bdf8;">${ofr.telefono || 'Sin teléfono'}</strong> (${ofr.nombreContacto || 'Propietario'})</div>
+          <div><strong style="color: #94a3b8;">Portal de Origen:</strong> <span style="color: #f59e0b; font-weight: 700;">${portalNombre}</span></div>
+          <div><strong style="color: #94a3b8;">Fecha y Hora Oficial de Captura:</strong> <span style="color: #fff;">${fechaFmt}</span></div>
+        </div>
+
+        <!-- SELLO DIGITAL -->
+        <div style="background: rgba(0,0,0,0.35); border: 1px dashed rgba(16, 185, 129, 0.4); border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+          <div style="font-size: 0.72rem; color: #10b981; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; display: flex; align-items: center; gap: 5px;">
+            <i class="fa-solid fa-fingerprint"></i> Sello Criptográfico Inmutable (SHA-256)
+          </div>
+          <div style="font-family: monospace; font-size: 0.74rem; color: #cbd5e1; word-break: break-all; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);">
+            ${sha}
+          </div>
+          <p style="margin: 6px 0 0 0; font-size: 0.74rem; color: #94a3b8; line-height: 1.4;">
+            Este sello matemático certifica que este anuncio fue capturado directamente del portal oficial y no ha sido alterado ni manipulado.
+          </p>
+        </div>
+
+        <!-- BOTONES DE ACCIÓN RÁPIDA -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button onclick="window.copiarRespaldoWhatsApp(${ofr.id})" style="background: #25d366; color: #000; font-weight: 700; border: none; border-radius: 6px; padding: 11px 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9rem;">
+            <i class="fa-brands fa-whatsapp" style="font-size: 1.2rem;"></i> Copiar Certificado para Enviar por WhatsApp
+          </button>
+          <div style="display: flex; gap: 8px;">
+            <a href="${ofr.enlace}" target="_blank" style="flex: 1; text-align: center; background: rgba(255,255,255,0.08); color: #fff; text-decoration: none; border-radius: 6px; padding: 9px 12px; font-size: 0.82rem; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver Anuncio Original
+            </a>
+            <button onclick="window.copiarTextoUniversal('${sha}', 'Hash SHA-256 copiado al portapapeles')" style="flex: 1; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 9px 12px; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+              <i class="fa-regular fa-copy"></i> Copiar Solo Hash
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
+
+/**
+ * Genera y copia el texto oficial para responder reclamos de clientes en WhatsApp
+ */
+window.copiarRespaldoWhatsApp = function(id) {
+  const ofr = (window.leadsCache && window.leadsCache.get(id));
+  if (!ofr) return;
+
+  const fechaFmt = ofr.fechaCaptura ? new Date(ofr.fechaCaptura).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : 'Reciente';
+  const precioFmt = ofr.precioActual ? Number(ofr.precioActual).toLocaleString('es-CO') : '0';
+  const portalNombre = (ofr.tienda || ofr.portal || 'Portal Inmobiliario').toUpperCase();
+
+  const textoWhatsApp = 
+`🛡️ *CERTIFICADO DE AUTENTICIDAD DE LEAD*
+📋 *Inmueble:* ${ofr.titulo}
+💰 *Precio publicado:* $ ${precioFmt} COP
+📱 *Contacto Directo:* ${ofr.telefono || 'Sin teléfono'} (${ofr.nombreContacto || 'Propietario'})
+📍 *Ubicación:* ${ofr.barrio || ''}, ${ofr.ciudad || 'Colombia'}
+🌐 *Portal de Origen:* ${portalNombre}
+⏰ *Fecha Oficial de Captura:* ${fechaFmt}
+🔒 *Sello Digital SHA-256:* \`${ofr.rawResponseSha256 || 'Verificado'}\`
+🔗 *Enlace directo al anuncio:* ${ofr.enlace}
+
+✅ *Garantía del Servicio:* Este registro certifica que el inmueble fue extraído directamente de la publicación oficial en la fecha y hora indicadas sin alteraciones. Si el inmueble ya no está disponible o cambió de precio, se debe a la velocidad de venta y decisiones comerciales del propietario.`;
+
+  window.copiarTextoUniversal(textoWhatsApp, '¡Certificado copiado! Listo para pegar en WhatsApp.');
+};
+

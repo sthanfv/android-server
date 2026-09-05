@@ -105,20 +105,7 @@ else
 fi
 
 # ══════════════════════════════════════════
-# 6. POCKETBASE — Base de datos central
-# ══════════════════════════════════════════
-PB_DIR="$DASHBOARD_DIR/apps/pocketbase"
-if [ -f "$PB_DIR/pocketbase" ]; then
-  if ! pgrep -f "pocketbase serve" > /dev/null; then
-    su u0_a106 -G 3003 -c "cd $PB_DIR && nohup ./pocketbase serve --http=\"0.0.0.0:8090\" > /dev/null 2>&1 &"
-    echo "[$(date)] ✅ PocketBase iniciado" >> "$BOOT_LOG"
-  else
-    echo "[$(date)] ℹ️ PocketBase ya estaba corriendo" >> "$BOOT_LOG"
-  fi
-fi
-
-# ══════════════════════════════════════════
-# 7. NOTIFICACIÓN A TELEGRAM (Alertas M10)
+# 6. NOTIFICACIÓN A TELEGRAM (Alertas M10)
 # ══════════════════════════════════════════
 sleep 5
 
